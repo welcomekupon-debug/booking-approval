@@ -1,5 +1,6 @@
 "use client";
 
+export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState } from "react";
 import BookingCard from "@/components/BookingCard";
 import type { Booking, BookingStatus } from "@/types/booking";
@@ -10,10 +11,13 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/bookings");
+  setLoading(true);
+  setError(null);
+
+  try {
+    const res = await fetch("/api/bookings", {
+      cache: "no-store",
+    });
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
       const data = await res.json();
       setBookings(data.bookings);

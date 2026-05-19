@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { google } from "googleapis";
 import type { Booking } from "@/types/booking";
 
