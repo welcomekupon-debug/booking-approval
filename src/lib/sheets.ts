@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import { google } from "googleapis";
 import type { Booking } from "@/types/booking";
 
@@ -56,7 +54,10 @@ console.log("RAW ROWS:", rows);
     Status: row[4] ?? "",
     Bookingid: row[5] ?? "",
   }))
-  .filter((booking) => booking.Status === "Pending");
+  .filter(
+  (booking) =>
+    booking.Status?.toString().trim().toLowerCase() === "pending"
+);
 }
 
 export async function updateBookingStatus(
