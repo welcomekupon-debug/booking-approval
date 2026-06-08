@@ -1,45 +1,78 @@
 # Booking Approval App
 
-A mobile-friendly web app to review and approve or decline pending bookings, backed by a Google Sheet as the database.
+A mobile-friendly, **multi-tenant** web app where each of your clients signs in (via Clerk) and sees only *their own* pending bookings — backed entirely by Google Sheets.
 
-Built with **Next.js 14**, **TypeScript**, **Tailwind CSS**, and the **Google Sheets API**.
+Built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, **Clerk Authentication**, and the **Google Sheets API**.
 
 ---
 
 ## Features
 
-- Reads pending bookings from a Google Sheet in real time
-- Confirm or Decline each booking with one tap
-- Updates `Status` and `DecisionTimestamp` columns in the sheet instantly
+- Each client logs in with Clerk and sees only **their own** bookings
+- A master **"Clients" spreadsheet** (yours) maps each client's login email to their personal bookings spreadsheet
+- Confirm or Decline each booking with one tap — instantly updates `Status` in the client's sheet
 - Responsive card grid (1 column mobile → 2 columns tablet+)
 - Deployable to Vercel in minutes
 
 ---
 
-## Google Sheet Setup
+## How multi-tenancy works
 
-### 1. Create the Sheet
+This app uses **two kinds of spreadsheets**:
 
-Create a new Google Sheet with the following header row in **row 1**:
+1. **Your master "Clients" spreadsheet** — one row per client (business) who logs into the app. It maps each client's login email to the spreadsheet that holds *their* bookings.
+2. **Each client's own bookings spreadsheet** — a separate Google Sheet per client (e.g. the one your client uses to track their customers' appointments).
 
-| A          | B            | C           | D           | E      | F                  |
-|------------|--------------|-------------|-------------|--------|--------------------|
-| BookingID  | CustomerName | BookingDate | BookingTime | Status | DecisionTimestamp  |
+When a client signs in:
+1. The app reads their email from Clerk
+2. Looks up that email in your **Clients** spreadsheet
+3. Finds the `SpreadsheetID` / `SheetName` for that client
+4. Reads/writes bookings **only** in that client's own spreadsheet
 
-Add some sample rows with `Status = Pending` to test:
+This keeps every client's data completely isolated — they never see anyone else's bookings.
 
+---
+
+## Google Sheets Setup
+
+### 1. Create the master "Clients" spreadsheet (yours)
+
+Create a new Google Sheet — this is **your** spreadsheet, not a client's. Add this header row in **row 1**:
+
+| A          | B            | C             | D         | E      | F      |
+|------------|--------------|---------------|-----------|--------|--------|
+| ClientName | ClientEmail  | SpreadsheetID | SheetName | Phone  | Notes  |
+
+- **ClientName** — the business/person's name (for your reference)
+- **ClientEmail** — the email address they use to log in (must match their Clerk account email)
+- **SpreadsheetID** — the ID of *that client's* bookings spreadsheet (see step 3)
+- **SheetName** — the tab name in that spreadsheet that holds their bookings (e.g. `Sheet1`)
+- **Phone** / **Notes** — optional extra profile info
+
+Example row:
 ```
-B001  Jane Smith   2026-05-20  10:00  Pending
-B002  John Doe     2026-05-21  14:30  Pending
+Acme Salon   acme@example.com   1A2b3C4d5E...xyz   Sheet1   555-0100   VIP client
 ```
 
-### 2. Note the Spreadsheet ID
+Note this spreadsheet's ID from its URL (`https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`) — you'll set it as `GOOGLE_CLIENTS_SHEET_ID`.
 
-Your Sheet URL looks like:
+### 2. Create (or reuse) each client's bookings spreadsheet
+
+Each client needs their own spreadsheet with this header row in **row 1**:
+
+| A   | B     | C     | D   | E      | F          |
+|-----|-------|-------|-----|--------|------------|
+| Ime | Gmail | Datum | Ura | Status | Bookingid  |
+
+Add sample rows with `Status = Pending` to test:
 ```
-https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+Jane Smith   jane@example.com   2026-05-20   10:00   Pending   B001
+John Doe     john@example.com   2026-05-21   14:30   Pending   B002
 ```
-Copy the `SPREADSHEET_ID` — you'll need it in step 5.
+
+Copy this spreadsheet's ID from its URL and put it in the matching client's row in your **Clients** sheet (`SpreadsheetID` column).
+
+> Repeat this step for every client — each gets their own spreadsheet and their own row in your Clients sheet.
 
 ---
 
@@ -72,12 +105,19 @@ Copy the `SPREADSHEET_ID` — you'll need it in step 5.
    - `client_email`  → maps to `GOOGLE_SERVICE_ACCOUNT_EMAIL`
    - `private_key`   → maps to `GOOGLE_PRIVATE_KEY`
 
-### 7. Share the Sheet with the Service Account
+### 7. Share EVERY spreadsheet with the Service Account
 
-1. Open your Google Sheet
+The service account needs **Editor** access to:
+- Your **master Clients spreadsheet**, AND
+- **Every individual client's bookings spreadsheet**
+
+For each spreadsheet:
+1. Open it
 2. Click **Share** (top right)
 3. Paste the `client_email` value (e.g. `booking-sheets-sa@your-project.iam.gserviceaccount.com`)
 4. Set permission to **Editor** → click **Send**
+
+> Forgetting to share a client's spreadsheet is the most common cause of "Failed to fetch bookings" errors for that client.
 
 ---
 
@@ -102,12 +142,21 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```env
-GOOGLE_SHEET_ID=your_spreadsheet_id_here
-GOOGLE_SHEET_NAME=Sheet1
+# Master Clients spreadsheet (yours) — maps login emails to each client's
+# own bookings spreadsheet. See "Google Sheets Setup" step 1.
+GOOGLE_CLIENTS_SHEET_ID=your_clients_spreadsheet_id_here
+GOOGLE_CLIENTS_SHEET_NAME=Clients
 
 GOOGLE_SERVICE_ACCOUNT_EMAIL=your-sa@your-project.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nABC...XYZ\n-----END RSA PRIVATE KEY-----\n"
+
+# Clerk Authentication (added by `clerk init` — already populated in your
+# .env.local if you ran the setup script)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 ```
+
+> You do **not** need a single `GOOGLE_SHEET_ID` anymore — each client's spreadsheet ID/tab is looked up dynamically from your Clients sheet at request time.
 
 > **Important:** The private key from the JSON file contains literal newline characters.
 > When pasting into `.env.local`, replace each newline with `\n` so the entire key is on one line inside the quotes.
@@ -127,10 +176,12 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Push the project to a GitHub/GitLab repo
 2. Import the repo at [vercel.com/new](https://vercel.com/new)
 3. In **Environment Variables**, add:
-   - `GOOGLE_SHEET_ID`
-   - `GOOGLE_SHEET_NAME`
+   - `GOOGLE_CLIENTS_SHEET_ID`
+   - `GOOGLE_CLIENTS_SHEET_NAME`
    - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
    - `GOOGLE_PRIVATE_KEY` — paste the key with `\n` for newlines (Vercel handles this automatically when you paste multi-line values in the UI)
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+   - `CLERK_SECRET_KEY`
 4. Click **Deploy**
 
 ---
@@ -152,11 +203,13 @@ booking-approval/
 │   ├── components/
 │   │   └── BookingCard.tsx           # Individual booking card
 │   ├── lib/
-│   │   └── sheets.ts                 # Google Sheets API helpers
+│   │   └── sheets.ts                 # Google Sheets API helpers (Clients lookup + per-client bookings)
+│   ├── middleware.ts                 # Clerk auth middleware (protects all routes)
 │   └── types/
-│       └── booking.ts                # Shared TypeScript types
+│       ├── booking.ts                # Booking TypeScript types
+│       └── client.ts                 # ClientProfile TypeScript types
 ├── .env.example
-├── next.config.ts
+├── next.config.js
 ├── package.json
 ├── postcss.config.js
 ├── tailwind.config.ts
@@ -165,9 +218,11 @@ booking-approval/
 
 ## API Reference
 
+Both endpoints require the caller to be signed in (enforced by Clerk middleware). The signed-in user's email is looked up in your **Clients** spreadsheet to resolve which bookings spreadsheet to use — every response is scoped to that one client.
+
 ### `GET /api/bookings`
 
-Returns all rows where `Status === "Pending"`.
+Looks up the caller's client profile, then returns all rows in *their* spreadsheet where `Status === "Pending"`.
 
 **Response**
 ```json
@@ -175,20 +230,26 @@ Returns all rows where `Status === "Pending"`.
   "bookings": [
     {
       "rowIndex": 2,
-      "bookingId": "B001",
-      "customerName": "Jane Smith",
-      "bookingDate": "2026-05-20",
-      "bookingTime": "10:00",
-      "status": "Pending",
-      "decisionTimestamp": ""
+      "Ime": "Jane Smith",
+      "Gmail": "jane@example.com",
+      "Datum": "2026-05-20",
+      "Ura": "10:00",
+      "Status": "Pending",
+      "Bookingid": "B001"
     }
-  ]
+  ],
+  "client": { "clientName": "Acme Salon" }
 }
 ```
 
+**Error responses**
+- `401` — not signed in
+- `404` — no matching row in the Clients spreadsheet for this email
+- `500` — Google Sheets API error (e.g. spreadsheet not shared with the service account)
+
 ### `PATCH /api/bookings/:rowIndex`
 
-Updates the `Status` and `DecisionTimestamp` for the given sheet row.
+Updates the `Status` column (to `Confirmed` or `Declined`) for the given row **in the caller's own spreadsheet** — resolved the same way as `GET`.
 
 **Body**
 ```json
@@ -203,3 +264,9 @@ or
 ```json
 { "success": true, "status": "Confirmed" }
 ```
+
+**Error responses**
+- `400` — invalid row index, malformed body, or invalid status value
+- `401` — not signed in
+- `404` — no client profile found, or the row doesn't exist in their spreadsheet
+- `500` — Google Sheets API error

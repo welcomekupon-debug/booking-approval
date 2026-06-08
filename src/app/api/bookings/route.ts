@@ -1,12 +1,43 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getPendingBookings } from "@/lib/sheets";
+import { currentUser } from "@clerk/nextjs/server";
+import { getClientByEmail, getPendingBookings } from "@/lib/sheets";
 
 export async function GET() {
   try {
-    const bookings = await getPendingBookings();
-    return NextResponse.json({ bookings });
+    const user = await currentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    }
+
+    const email = user.emailAddresses.find(
+      (e) => e.id === user.primaryEmailAddressId
+    )?.emailAddress;
+
+    if (!email) {
+      return NextResponse.json(
+        { error: "No email address found on this account." },
+        { status: 400 }
+      );
+    }
+
+    // Look up which spreadsheet belongs to this client
+    const client = await getClientByEmail(email);
+
+    if (!client) {
+      return NextResponse.json(
+        {
+          error:
+            "No client profile found for this account. Please contact the administrator to be added.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const bookings = await getPendingBookings(client.spreadsheetId, client.sheetName);
+    return NextResponse.json({ bookings, client: { clientName: client.clientName } });
   } catch (error) {
     console.error("[GET /api/bookings]", error);
     return NextResponse.json(

@@ -2,10 +2,12 @@
 
 export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import BookingCard from "@/components/BookingCard";
 import type { Booking, BookingStatus } from "@/types/booking";
 
 export default function HomePage() {
+  const { user } = useUser();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,9 +58,11 @@ export default function HomePage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Booking Approvals</h1>
+        <h1 className="text-3xl font-bold text-gray-900">
+          {user?.firstName ? `${user.firstName}'s Bookings` : "Your Bookings"}
+        </h1>
         <p className="text-gray-500 mt-1">
-          Review and action all pending booking requests.
+          Review and action your pending booking requests.
         </p>
       </header>
 
