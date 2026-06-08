@@ -110,9 +110,10 @@ function rowToBooking(row: string[], index: number): Booking {
 }
 
 /**
- * Fetch bookings with Status = "Pending" from a specific client's spreadsheet.
+ * Fetch ALL bookings from a specific client's spreadsheet (no status filter).
+ * This is the base fetch — all other booking queries call this.
  */
-export async function getPendingBookings(
+export async function getAllBookings(
   spreadsheetId: string,
   sheetName: string
 ): Promise<Booking[]> {
@@ -126,13 +127,20 @@ export async function getPendingBookings(
   const rows = response.data.values ?? [];
 
   // Row 0 is the header row — skip it
-  return rows
-    .slice(1)
-    .map(rowToBooking)
-    .filter(
-      (booking) =>
-        booking.Status?.toString().trim().toLowerCase() === "pending"
-    );
+  return rows.slice(1).map(rowToBooking);
+}
+
+/**
+ * Fetch bookings with Status = "Pending" from a specific client's spreadsheet.
+ */
+export async function getPendingBookings(
+  spreadsheetId: string,
+  sheetName: string
+): Promise<Booking[]> {
+  const all = await getAllBookings(spreadsheetId, sheetName);
+  return all.filter(
+    (b) => b.Status?.toString().trim().toLowerCase() === "pending"
+  );
 }
 
 /**
