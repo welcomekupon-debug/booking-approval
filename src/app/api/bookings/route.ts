@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { getClientByEmail, getPendingBookings } from "@/lib/sheets";
+import { getClientByEmail, getAllBookings } from "@/lib/sheets";
 
 export async function GET() {
   try {
@@ -36,7 +36,9 @@ export async function GET() {
       );
     }
 
-    const bookings = await getPendingBookings(client.spreadsheetId, client.sheetName);
+    // Return ALL bookings — client-side filters (search / status / date) are
+    // applied in the browser so we only need one fetch per page load.
+    const bookings = await getAllBookings(client.spreadsheetId, client.sheetName);
     return NextResponse.json({ bookings, client: { clientName: client.clientName } });
   } catch (error) {
     console.error("[GET /api/bookings]", error);

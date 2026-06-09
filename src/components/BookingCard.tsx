@@ -8,9 +8,23 @@ interface BookingCardProps {
   onDecision: (rowIndex: number, status: BookingStatus) => Promise<void>;
 }
 
+const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  pending:   { bg: "bg-amber-50",   text: "text-amber-600",   label: "Pending" },
+  confirmed: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Confirmed" },
+  declined:  { bg: "bg-red-50",     text: "text-red-600",     label: "Declined" },
+};
+
 export default function BookingCard({ booking, onDecision }: BookingCardProps) {
   const [loading, setLoading] = useState<BookingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const normalizedStatus = booking.Status?.toString().trim().toLowerCase();
+  const isPending = normalizedStatus === "pending";
+  const statusStyle = STATUS_STYLES[normalizedStatus] ?? {
+    bg: "bg-gray-50",
+    text: "text-gray-500",
+    label: booking.Status,
+  };
 
   async function handleClick(status: BookingStatus) {
     setLoading(status);
@@ -28,9 +42,18 @@ export default function BookingCard({ booking, onDecision }: BookingCardProps) {
   return (
     <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-gray-800 truncate">
-          {booking.Ime}
-        </h2>
+        {/* Name + status badge */}
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-lg font-semibold text-gray-800 truncate">
+            {booking.Ime}
+          </h2>
+          <span
+            className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${statusStyle.bg} ${statusStyle.text}`}
+          >
+            {statusStyle.label}
+          </span>
+        </div>
+
         <p className="text-sm text-gray-500">
           <span className="font-medium text-gray-600">Gmail:</span>{" "}
           {booking.Gmail}
@@ -52,22 +75,25 @@ export default function BookingCard({ booking, onDecision }: BookingCardProps) {
         </p>
       )}
 
-      <div className="flex gap-3 mt-auto">
-        <button
-          onClick={() => handleClick("Confirmed")}
-          disabled={isDisabled}
-          className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading === "Confirmed" ? "Confirming…" : "Confirm"}
-        </button>
-        <button
-          onClick={() => handleClick("Declined")}
-          disabled={isDisabled}
-          className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading === "Declined" ? "Declining…" : "Decline"}
-        </button>
-      </div>
+      {/* Action buttons — only shown for pending bookings */}
+      {isPending && (
+        <div className="flex gap-3 mt-auto">
+          <button
+            onClick={() => handleClick("Confirmed")}
+            disabled={isDisabled}
+            className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading === "Confirmed" ? "Confirming…" : "Confirm"}
+          </button>
+          <button
+            onClick={() => handleClick("Declined")}
+            disabled={isDisabled}
+            className="flex-1 py-2 px-4 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading === "Declined" ? "Declining…" : "Decline"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

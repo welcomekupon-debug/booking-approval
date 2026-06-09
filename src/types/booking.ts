@@ -22,3 +22,6 @@ export interface BookingStats {
   today: number;
   thisMonth: number;
 }
+
+export type StatusFilter = "all" | "pending" | "confirmed" | "declined";
+export type DateFilter = "all" | "today" | "week" | "month";

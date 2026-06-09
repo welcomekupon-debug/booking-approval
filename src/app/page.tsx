@@ -2,69 +2,73 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import BookingCard from "@/components/BookingCard";
+import BookingFilters from "@/components/BookingFilters";
 import StatsCards from "@/components/StatsCards";
-import type { Booking, BookingStats, BookingStatus } from "@/types/booking";
+import { filterBookings } from "@/lib/filterBookings";
+import { computeStats } from "@/lib/stats";
+import type {
+  Booking,
+  BookingStatus,
+  DateFilter,
+  StatusFilter,
+} from "@/types/booking";
 
 export default function HomePage() {
   const { user } = useUser();
 
+  // ── Raw data (single fetch) ─────────────────────────────────────────────
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<BookingStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
+  // ── Filter state ────────────────────────────────────────────────────────
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
+  // ── Derived data (no extra fetches) ────────────────────────────────────
+  const stats = useMemo(() => computeStats(bookings), [bookings]);
+
+  const filteredBookings = useMemo(
+    () => filterBookings(bookings, query, statusFilter, dateFilter),
+    [bookings, query, statusFilter, dateFilter]
+  );
+
+  const isFiltered = query !== "" || statusFilter !== "all" || dateFilter !== "all";
+
+  // ── Data fetching ───────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
-    setBookingsLoading(true);
-    setStatsLoading(true);
-    setBookingsError(null);
-    setStatsError(null);
+    setLoading(true);
+    setError(null);
 
-    // Fire both requests in parallel — one Google Sheets read each
-    const [bookingsRes, statsRes] = await Promise.allSettled([
-      fetch("/api/bookings", { cache: "no-store" }),
-      fetch("/api/stats", { cache: "no-store" }),
-    ]);
+    try {
+      // One fetch returns ALL bookings; filters are applied client-side
+      const res = await fetch("/api/bookings", { cache: "no-store" });
 
-    // --- bookings ---
-    if (bookingsRes.status === "fulfilled") {
-      const res = bookingsRes.value;
-      if (res.ok) {
-        const data = await res.json();
-        setBookings(data.bookings);
-      } else {
+      if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setBookingsError(data.error ?? `Server responded with ${res.status}`);
+        throw new Error(data.error ?? `Server responded with ${res.status}`);
       }
-    } else {
-      setBookingsError("Failed to load bookings.");
-    }
-    setBookingsLoading(false);
 
-    // --- stats ---
-    if (statsRes.status === "fulfilled") {
-      const res = statsRes.value;
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-      } else {
-        setStatsError("Could not load statistics.");
-      }
-    } else {
-      setStatsError("Could not load statistics.");
+      const data = await res.json();
+      setBookings(data.bookings);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load bookings.");
+    } finally {
+      setLoading(false);
     }
-    setStatsLoading(false);
   }, []);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
+  // ── Decision handler ────────────────────────────────────────────────────
+  // Updates the booking status in local state rather than removing it —
+  // the active status filter handles visibility automatically.
   const handleDecision = useCallback(
     async (rowIndex: number, status: BookingStatus) => {
       const res = await fetch(`/api/bookings/${rowIndex}`, {
@@ -78,24 +82,17 @@ export default function HomePage() {
         throw new Error(data.error ?? "Failed to update booking.");
       }
 
-      // Remove from pending list immediately
-      setBookings((prev) => prev.filter((b) => b.rowIndex !== rowIndex));
-
-      // Update stats locally — no extra API call needed
-      setStats((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          pending: Math.max(0, prev.pending - 1),
-          confirmed:
-            status === "Confirmed" ? prev.confirmed + 1 : prev.confirmed,
-          declined: status === "Declined" ? prev.declined + 1 : prev.declined,
-        };
-      });
+      // Update status in-place; useMemo re-filters + re-computes stats automatically
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.rowIndex === rowIndex ? { ...b, Status: status } : b
+        )
+      );
     },
     []
   );
 
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
     <main className="max-w-2xl mx-auto px-4 py-10">
       <header className="mb-8">
@@ -103,27 +100,28 @@ export default function HomePage() {
           {user?.firstName ? `${user.firstName}'s Bookings` : "Your Bookings"}
         </h1>
         <p className="text-gray-500 mt-1">
-          Review and action your pending booking requests.
+          Review and action your booking requests.
         </p>
       </header>
 
-      {/* ── Statistics ── */}
+      {/* ── Statistics ────────────────────────────────────────────────── */}
       <StatsCards
-        stats={stats}
-        loading={statsLoading}
-        error={statsError}
+        stats={loading ? null : stats}
+        loading={loading}
+        error={error}
       />
 
-      {/* ── Pending bookings ── */}
-      {bookingsLoading && (
+      {/* ── Loading spinner ───────────────────────────────────────────── */}
+      {loading && (
         <div className="flex justify-center items-center py-20">
           <div className="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {bookingsError && !bookingsLoading && (
+      {/* ── Error state ───────────────────────────────────────────────── */}
+      {error && !loading && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <p className="text-red-600 font-medium">{bookingsError}</p>
+          <p className="text-red-600 font-medium">{error}</p>
           <button
             onClick={fetchAll}
             className="mt-4 px-5 py-2 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors"
@@ -133,41 +131,77 @@ export default function HomePage() {
         </div>
       )}
 
-      {!bookingsLoading && !bookingsError && bookings.length === 0 && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center shadow-sm">
-          <p className="text-gray-400 text-lg">No pending bookings.</p>
-          <button
-            onClick={fetchAll}
-            className="mt-4 px-5 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors"
-          >
-            Refresh
-          </button>
-        </div>
-      )}
-
-      {!bookingsLoading && !bookingsError && bookings.length > 0 && (
+      {/* ── Filters + booking list ────────────────────────────────────── */}
+      {!loading && !error && (
         <>
+          <BookingFilters
+            query={query}
+            onQueryChange={setQuery}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+            dateFilter={dateFilter}
+            onDateChange={setDateFilter}
+          />
+
+          {/* Result count */}
           <p className="text-sm text-gray-400 mb-4">
-            {bookings.length} pending{" "}
-            {bookings.length === 1 ? "booking" : "bookings"}
+            {filteredBookings.length}{" "}
+            {filteredBookings.length === 1 ? "booking" : "bookings"}
+            {isFiltered && " matching current filters"}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {bookings.map((booking) => (
-              <BookingCard
-                key={booking.rowIndex}
-                booking={booking}
-                onDecision={handleDecision}
-              />
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <button
-              onClick={fetchAll}
-              className="px-5 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
+
+          {/* Empty state */}
+          {filteredBookings.length === 0 ? (
+            <div className="bg-white border border-gray-100 rounded-2xl p-10 text-center shadow-sm">
+              {isFiltered ? (
+                <>
+                  <p className="text-gray-400 text-lg">
+                    No bookings match your current search and filters.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setQuery("");
+                      setStatusFilter("all");
+                      setDateFilter("all");
+                    }}
+                    className="mt-4 px-5 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-400 text-lg">No bookings yet.</p>
+                  <button
+                    onClick={fetchAll}
+                    className="mt-4 px-5 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredBookings.map((booking) => (
+                  <BookingCard
+                    key={booking.rowIndex}
+                    booking={booking}
+                    onDecision={handleDecision}
+                  />
+                ))}
+              </div>
+              <div className="mt-8 text-center">
+                <button
+                  onClick={fetchAll}
+                  className="px-5 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  Refresh
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
     </main>
