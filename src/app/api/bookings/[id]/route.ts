@@ -70,8 +70,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     }
 
-    await updateBookingStatus(client.spreadsheetId, client.sheetName, rowIndex, status);
-    return NextResponse.json({ success: true, status });
+    // Generate timestamp here so we can return it — the client sets the exact
+    // same value in local state for a consistent activity feed without a re-fetch.
+    const updatedAt = new Date().toISOString();
+    await updateBookingStatus(client.spreadsheetId, client.sheetName, rowIndex, status, updatedAt);
+    return NextResponse.json({ success: true, status, updatedAt });
   } catch (error) {
     console.error(`[PATCH /api/bookings/${rowIndex}]`, error);
     return NextResponse.json(

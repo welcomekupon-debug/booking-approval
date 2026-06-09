@@ -90,11 +90,11 @@ export async function getClientByEmail(
 //
 // Each client has their own spreadsheet (its ID/tab name comes from their
 // row in the Clients sheet above). Columns (1-indexed, A=1):
-// A: Ime | B: Gmail | C: Datum | D: Ura | E: Status | F: Bookingid
+// A: Ime | B: Gmail | C: Datum | D: Ura | E: Status | F: Bookingid | G: UpdatedAt
 // ---------------------------------------------------------------------------
 
 function bookingDataRange(sheetName: string) {
-  return `${sheetName}!A:F`;
+  return `${sheetName}!A:G`;
 }
 
 function rowToBooking(row: string[], index: number): Booking {
@@ -106,6 +106,7 @@ function rowToBooking(row: string[], index: number): Booking {
     Ura: row[3] ?? "",
     Status: row[4] ?? "",
     Bookingid: row[5] ?? "",
+    UpdatedAt: row[6] ?? "",
   };
 }
 
@@ -157,7 +158,7 @@ export async function getBookingByRow(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A${rowIndex}:F${rowIndex}`,
+    range: `${sheetName}!A${rowIndex}:G${rowIndex}`,
   });
 
   const row = response.data.values?.[0];
@@ -166,21 +167,29 @@ export async function getBookingByRow(
   return rowToBooking(row, rowIndex - 2);
 }
 
+/**
+ * Write Status (column E) and UpdatedAt (column G) in a single batchUpdate
+ * call so only one Google Sheets API request is needed per decision.
+ * The caller supplies `updatedAt` so it can echo the exact same value back
+ * to the client for consistent local state updates.
+ */
 export async function updateBookingStatus(
   spreadsheetId: string,
   sheetName: string,
   rowIndex: number,
-  status: "Confirmed" | "Declined"
+  status: "Confirmed" | "Declined",
+  updatedAt: string
 ): Promise<void> {
   const sheets = getSheetsClient();
 
-  // Only column E holds Status; there is no DecisionTimestamp column in this sheet
-  await sheets.spreadsheets.values.update({
+  await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
-    range: `${sheetName}!E${rowIndex}`,
-    valueInputOption: "USER_ENTERED",
     requestBody: {
-      values: [[status]],
+      valueInputOption: "USER_ENTERED",
+      data: [
+        { range: `${sheetName}!E${rowIndex}`, values: [[status]] },
+        { range: `${sheetName}!G${rowIndex}`, values: [[updatedAt]] },
+      ],
     },
   });
 }

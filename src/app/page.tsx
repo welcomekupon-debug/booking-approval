@@ -6,7 +6,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import BookingCard from "@/components/BookingCard";
 import BookingFilters from "@/components/BookingFilters";
+import RecentActivity from "@/components/RecentActivity";
 import StatsCards from "@/components/StatsCards";
+import { getRecentActivity } from "@/lib/activity";
 import { filterBookings } from "@/lib/filterBookings";
 import { computeStats } from "@/lib/stats";
 import type {
@@ -31,6 +33,7 @@ export default function HomePage() {
 
   // ── Derived data (no extra fetches) ────────────────────────────────────
   const stats = useMemo(() => computeStats(bookings), [bookings]);
+  const activityItems = useMemo(() => getRecentActivity(bookings), [bookings]);
 
   const filteredBookings = useMemo(
     () => filterBookings(bookings, query, statusFilter, dateFilter),
@@ -82,10 +85,17 @@ export default function HomePage() {
         throw new Error(data.error ?? "Failed to update booking.");
       }
 
-      // Update status in-place; useMemo re-filters + re-computes stats automatically
+      // The route returns the exact timestamp it wrote to the sheet —
+      // use it here so local state matches the sheet value precisely.
+      const { updatedAt } = await res.json();
+
+      // Update status + UpdatedAt in-place; all useMemos (stats, activity,
+      // filteredBookings) recompute automatically from the updated array.
       setBookings((prev) =>
         prev.map((b) =>
-          b.rowIndex === rowIndex ? { ...b, Status: status } : b
+          b.rowIndex === rowIndex
+            ? { ...b, Status: status, UpdatedAt: updatedAt ?? new Date().toISOString() }
+            : b
         )
       );
     },
@@ -110,6 +120,11 @@ export default function HomePage() {
         loading={loading}
         error={error}
       />
+
+      {/* ── Recent Activity ───────────────────────────────────────────── */}
+      {!error && (
+        <RecentActivity items={activityItems} loading={loading} />
+      )}
 
       {/* ── Loading spinner ───────────────────────────────────────────── */}
       {loading && (
