@@ -1,50 +1,288 @@
-import type { Booking, BookingStats } from "@/types/booking";
-import { parseBookingDate } from "@/lib/dates";
+import type { Booking } from "@/types/booking";
+import {
+  addDays,
+  bookingDateTime,
+  parseBookingDate,
+  startOfDay,
+  startOfWeek,
+} from "@/lib/dates";
 
-/**
- * Compute dashboard statistics from a full list of bookings.
- * Status values are normalised with trim().toLowerCase() before comparison.
- */
-export function computeStats(bookings: Booking[]): BookingStats {
+export function normStatus(b: Booking): string {
+  return b.Status?.toString().trim().toLowerCase() ?? "";
+}
+
+export interface TrendStat {
+  value: number;
+  previous: number;
+  /** % change vs previous period; null when previous is 0 */
+  delta: number | null;
+}
+
+export interface DashboardStats {
+  todayCount: number;
+  upcoming: number;
+  confirmed: number;
+  pending: number;
+  cancelled: number;
+  revenue: TrendStat; // this month vs last month
+  newCustomers: TrendStat; // this month vs last month
+  repeatCustomers: number;
+  occupancyRate: number; // % of upcoming 7 days with at least one booking
+  weekBookings: TrendStat; // this week vs last week
+  monthBookings: TrendStat; // this month vs last month
+}
+
+function pctDelta(value: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return Math.round(((value - previous) / previous) * 100);
+}
+
+/** Sum of Price for confirmed bookings within [from, to) */
+function revenueBetween(bookings: Booking[], from: Date, to: Date): number {
+  let sum = 0;
+  for (const b of bookings) {
+    if (normStatus(b) !== "confirmed") continue;
+    const d = parseBookingDate(b.Datum);
+    if (!d || d < from || d >= to) continue;
+    const price = parseFloat(String(b.Price).replace(",", "."));
+    if (!isNaN(price)) sum += price;
+  }
+  return Math.round(sum * 100) / 100;
+}
+
+function firstBookingMonth(bookings: Booking[]): Map<string, Date> {
+  const first = new Map<string, Date>();
+  for (const b of bookings) {
+    const email = b.Gmail?.trim().toLowerCase();
+    if (!email) continue;
+    const d = parseBookingDate(b.Datum);
+    if (!d) continue;
+    const existing = first.get(email);
+    if (!existing || d < existing) first.set(email, d);
+  }
+  return first;
+}
+
+export function computeDashboardStats(bookings: Booking[]): DashboardStats {
   const now = new Date();
-  const todayY = now.getFullYear();
-  const todayM = now.getMonth();
-  const todayD = now.getDate();
+  const today = startOfDay(now);
+  const tomorrow = addDays(today, 1);
 
-  let pending = 0;
+  const weekStart = startOfWeek(now);
+  const lastWeekStart = addDays(weekStart, -7);
+
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  let todayCount = 0;
+  let upcoming = 0;
   let confirmed = 0;
-  let declined = 0;
-  let today = 0;
-  let thisMonth = 0;
+  let pending = 0;
+  let cancelled = 0;
+  let weekCount = 0;
+  let lastWeekCount = 0;
+  let monthCount = 0;
+  let lastMonthCount = 0;
 
   for (const b of bookings) {
-    const status = b.Status?.toString().trim().toLowerCase();
-
+    const status = normStatus(b);
     if (status === "pending") pending++;
     else if (status === "confirmed") confirmed++;
-    else if (status === "declined") declined++;
+    else if (status === "declined") cancelled++;
 
-    const date = parseBookingDate(b.Datum);
-    if (date) {
-      if (
-        date.getFullYear() === todayY &&
-        date.getMonth() === todayM &&
-        date.getDate() === todayD
-      ) {
-        today++;
-      }
-      if (date.getFullYear() === todayY && date.getMonth() === todayM) {
-        thisMonth++;
-      }
-    }
+    const d = parseBookingDate(b.Datum);
+    if (!d) continue;
+
+    if (d >= today && d < tomorrow) todayCount++;
+    if (d >= tomorrow && status !== "declined") upcoming++;
+
+    if (d >= weekStart && d < addDays(weekStart, 7)) weekCount++;
+    if (d >= lastWeekStart && d < weekStart) lastWeekCount++;
+    if (d >= monthStart && d < nextMonthStart) monthCount++;
+    if (d >= lastMonthStart && d < monthStart) lastMonthCount++;
   }
 
+  // New / repeat customers
+  const firstSeen = firstBookingMonth(bookings);
+  let newCustomers = 0;
+  let newCustomersLastMonth = 0;
+  for (const d of Array.from(firstSeen.values())) {
+    if (d >= monthStart && d < nextMonthStart) newCustomers++;
+    if (d >= lastMonthStart && d < monthStart) newCustomersLastMonth++;
+  }
+
+  const bookingsPerCustomer = new Map<string, number>();
+  for (const b of bookings) {
+    const email = b.Gmail?.trim().toLowerCase();
+    if (!email) continue;
+    bookingsPerCustomer.set(email, (bookingsPerCustomer.get(email) ?? 0) + 1);
+  }
+  let repeatCustomers = 0;
+  for (const count of Array.from(bookingsPerCustomer.values())) {
+    if (count > 1) repeatCustomers++;
+  }
+
+  // Occupancy: share of the next 7 days that have at least one non-declined booking
+  let occupiedDays = 0;
+  for (let i = 0; i < 7; i++) {
+    const dayStart = addDays(today, i);
+    const dayEnd = addDays(dayStart, 1);
+    const has = bookings.some((b) => {
+      if (normStatus(b) === "declined") return false;
+      const d = parseBookingDate(b.Datum);
+      return d !== null && d >= dayStart && d < dayEnd;
+    });
+    if (has) occupiedDays++;
+  }
+  const occupancyRate = Math.round((occupiedDays / 7) * 100);
+
+  const revenue = revenueBetween(bookings, monthStart, nextMonthStart);
+  const revenuePrev = revenueBetween(bookings, lastMonthStart, monthStart);
+
   return {
-    total: bookings.length,
-    pending,
+    todayCount,
+    upcoming,
     confirmed,
-    declined,
-    today,
-    thisMonth,
+    pending,
+    cancelled,
+    revenue: { value: revenue, previous: revenuePrev, delta: pctDelta(revenue, revenuePrev) },
+    newCustomers: {
+      value: newCustomers,
+      previous: newCustomersLastMonth,
+      delta: pctDelta(newCustomers, newCustomersLastMonth),
+    },
+    repeatCustomers,
+    occupancyRate,
+    weekBookings: {
+      value: weekCount,
+      previous: lastWeekCount,
+      delta: pctDelta(weekCount, lastWeekCount),
+    },
+    monthBookings: {
+      value: monthCount,
+      previous: lastMonthCount,
+      delta: pctDelta(monthCount, lastMonthCount),
+    },
   };
+}
+
+// ── Chart data helpers ──────────────────────────────────────────────────────
+
+export interface SeriesPoint {
+  label: string;
+  value: number;
+}
+
+/** Bookings per day for the last `days` days (inclusive of today). */
+export function bookingsPerDay(bookings: Booking[], days = 30): SeriesPoint[] {
+  const today = startOfDay(new Date());
+  const points: SeriesPoint[] = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const dayStart = addDays(today, -i);
+    const dayEnd = addDays(dayStart, 1);
+    const count = bookings.filter((b) => {
+      const d = parseBookingDate(b.Datum);
+      return d !== null && d >= dayStart && d < dayEnd;
+    }).length;
+    points.push({
+      label: dayStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+      value: count,
+    });
+  }
+  return points;
+}
+
+/** Bookings per month for the last `months` months. */
+export function bookingsPerMonth(bookings: Booking[], months = 6): SeriesPoint[] {
+  const now = new Date();
+  const points: SeriesPoint[] = [];
+
+  for (let i = months - 1; i >= 0; i--) {
+    const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const to = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    const count = bookings.filter((b) => {
+      const d = parseBookingDate(b.Datum);
+      return d !== null && d >= from && d < to;
+    }).length;
+    points.push({
+      label: from.toLocaleDateString("en-GB", { month: "short" }),
+      value: count,
+    });
+  }
+  return points;
+}
+
+/** Revenue per month (confirmed only) for the last `months` months. */
+export function revenuePerMonth(bookings: Booking[], months = 6): SeriesPoint[] {
+  const now = new Date();
+  const points: SeriesPoint[] = [];
+
+  for (let i = months - 1; i >= 0; i--) {
+    const from = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const to = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    points.push({
+      label: from.toLocaleDateString("en-GB", { month: "short" }),
+      value: revenueBetween(bookings, from, to),
+    });
+  }
+  return points;
+}
+
+/** Booking counts by hour of day, non-declined only. */
+export function bookingsByHour(bookings: Booking[]): SeriesPoint[] {
+  const counts = new Array(24).fill(0);
+  for (const b of bookings) {
+    if (normStatus(b) === "declined") continue;
+    const dt = bookingDateTime(b.Datum, b.Ura);
+    if (dt) counts[dt.getHours()]++;
+  }
+  const points: SeriesPoint[] = [];
+  for (let h = 7; h <= 20; h++) {
+    points.push({ label: `${h}:00`, value: counts[h] });
+  }
+  return points;
+}
+
+/** Count per service (non-declined), sorted desc. */
+export function bookingsByService(bookings: Booking[]): SeriesPoint[] {
+  const counts = new Map<string, number>();
+  for (const b of bookings) {
+    if (normStatus(b) === "declined") continue;
+    const service = b.Service?.trim() || "Unspecified";
+    counts.set(service, (counts.get(service) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/** Count per staff member (non-declined), sorted desc. */
+export function bookingsByStaff(bookings: Booking[]): SeriesPoint[] {
+  const counts = new Map<string, number>();
+  for (const b of bookings) {
+    if (normStatus(b) === "declined") continue;
+    const staff = b.Staff?.trim() || "Unassigned";
+    counts.set(staff, (counts.get(staff) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/** % of customers with more than one booking. */
+export function retentionRate(bookings: Booking[]): number {
+  const counts = new Map<string, number>();
+  for (const b of bookings) {
+    const email = b.Gmail?.trim().toLowerCase();
+    if (!email) continue;
+    counts.set(email, (counts.get(email) ?? 0) + 1);
+  }
+  if (counts.size === 0) return 0;
+  let repeat = 0;
+  for (const c of Array.from(counts.values())) {
+    if (c > 1) repeat++;
+  }
+  return Math.round((repeat / counts.size) * 100);
 }

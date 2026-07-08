@@ -1,8 +1,31 @@
-# Booking Approval App
+# Bookline — Premium Appointment Management
 
-A mobile-friendly, **multi-tenant** web app where each of your clients signs in (via Clerk) and sees only *their own* pending bookings — backed entirely by Google Sheets.
+A **multi-tenant** SaaS platform where each of your business clients signs in (via Clerk) and manages *their own* appointments — backed entirely by Google Sheets (no database needed).
 
 Built with **Next.js 15**, **TypeScript**, **Tailwind CSS**, **Clerk Authentication**, and the **Google Sheets API**.
+
+## What's inside (v2.0 redesign)
+
+- **Premium dashboard** — 10 stat cards (today, upcoming, pending, confirmed, cancelled, revenue, new/repeat customers, occupancy, weekly trend) with trend indicators, an animated booking-volume area chart, status donut, peak-hours bars, today's schedule, and recent activity
+- **Calendar** — day / week / month views, drag-and-drop rescheduling (saved straight to the sheet), color-coded statuses, hover details, click-to-edit, calendar search
+- **Appointment management** — rich cards with phone, service, duration, notes, price and staff; confirm / decline / reschedule / contact quick actions; saved filters
+- **Customers** — profiles derived automatically from bookings, appointment history, lifetime value, tags, VIP flags, private notes, search
+- **Onboarding wizard** — 9-step guided setup for new clients (business info → logo → hours → staff → services → durations → booking settings → notifications → launch)
+- **Notification center** — new requests, confirmations, cancellations, reminders, missed appointments
+- **Analytics** — 12-month trends, monthly growth, revenue, retention, popular services, peak hours, staff performance, CSV export
+- **Global search** — ⌘K command palette across customers, appointments, services and staff
+- **Settings** — business profile, branding, working hours, holidays, staff, services, booking preferences, email/SMS notification switches, security (Clerk), billing
+- **Extras** — dark mode, keyboard shortcuts (⌘K search, `G`+key navigation, `T` theme), loading skeletons, empty states, micro-animations, fully responsive
+
+### New spreadsheet schema
+
+Booking sheets gained optional columns **H–M** (old rows keep working — blanks are fine):
+
+| H     | I       | J        | K     | L     | M     |
+|-------|---------|----------|-------|-------|-------|
+| Phone | Service | Duration | Notes | Price | Staff |
+
+Four tabs are **auto-created** in each client's spreadsheet on first load: `Services`, `Staff`, `Settings`, `Customers`. You don't need to set these up manually.
 
 ---
 
@@ -200,73 +223,4 @@ booking-approval/
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   └── page.tsx                  # Main UI (client component)
-│   ├── components/
-│   │   └── BookingCard.tsx           # Individual booking card
-│   ├── lib/
-│   │   └── sheets.ts                 # Google Sheets API helpers (Clients lookup + per-client bookings)
-│   ├── middleware.ts                 # Clerk auth middleware (protects all routes)
-│   └── types/
-│       ├── booking.ts                # Booking TypeScript types
-│       └── client.ts                 # ClientProfile TypeScript types
-├── .env.example
-├── next.config.js
-├── package.json
-├── postcss.config.js
-├── tailwind.config.ts
-└── tsconfig.json
-```
-
-## API Reference
-
-Both endpoints require the caller to be signed in (enforced by Clerk middleware). The signed-in user's email is looked up in your **Clients** spreadsheet to resolve which bookings spreadsheet to use — every response is scoped to that one client.
-
-### `GET /api/bookings`
-
-Looks up the caller's client profile, then returns all rows in *their* spreadsheet where `Status === "Pending"`.
-
-**Response**
-```json
-{
-  "bookings": [
-    {
-      "rowIndex": 2,
-      "Ime": "Jane Smith",
-      "Gmail": "jane@example.com",
-      "Datum": "2026-05-20",
-      "Ura": "10:00",
-      "Status": "Pending",
-      "Bookingid": "B001"
-    }
-  ],
-  "client": { "clientName": "Acme Salon" }
-}
-```
-
-**Error responses**
-- `401` — not signed in
-- `404` — no matching row in the Clients spreadsheet for this email
-- `500` — Google Sheets API error (e.g. spreadsheet not shared with the service account)
-
-### `PATCH /api/bookings/:rowIndex`
-
-Updates the `Status` column (to `Confirmed` or `Declined`) for the given row **in the caller's own spreadsheet** — resolved the same way as `GET`.
-
-**Body**
-```json
-{ "status": "Confirmed" }
-```
-or
-```json
-{ "status": "Declined" }
-```
-
-**Response**
-```json
-{ "success": true, "status": "Confirmed" }
-```
-
-**Error responses**
-- `400` — invalid row index, malformed body, or invalid status value
-- `401` — not signed in
-- `404` — no client profile found, or the row doesn't exist in their spreadsheet
-- `500` — Google Sheets API error
+│   ├── 

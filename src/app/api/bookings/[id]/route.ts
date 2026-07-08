@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { currentUser } from "@clerk/nextjs/server";
-import { getBookingByRow, getClientByEmail, updateBookingStatus } from "@/lib/sheets";
-import type { UpdateStatusPayload } from "@/types/booking";
+import { resolveClient } from "@/lib/resolveClient";
+import { getBookingByRow, updateBooking } from "@/lib/sheets";
+import type { BookingUpdatePayload } from "@/types/booking";
 
+const EDITABLE_FIELDS: (keyof BookingUpdatePayload)[] = [
+  "status",
+  "datum",
+  "ura",
+  "notes",
+  "service",
+  "staff",
+  "phone",
+  "duration",
+  "price",
+];
+
+/**
+ * PATCH /api/bookings/[id] — update any subset of editable booking fields.
+ * Supports: approve/decline (status), reschedule (datum/ura), and editing
+ * phone / service / duration / notes / price / staff.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,16 +34,33 @@ export async function PATCH(
     );
   }
 
-  let body: UpdateStatusPayload;
+  let body: BookingUpdatePayload;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { status } = body;
+  // Whitelist fields
+  const fields: BookingUpdatePayload = {};
+  for (const key of EDITABLE_FIELDS) {
+    if (body[key] !== undefined) {
+      (fields as Record<string, unknown>)[key] = body[key];
+    }
+  }
 
-  if (status !== "Confirmed" && status !== "Declined") {
+  if (Object.keys(fields).length === 0) {
+    return NextResponse.json(
+      { error: "No editable fields provided." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    fields.status !== undefined &&
+    fields.status !== "Confirmed" &&
+    fields.status !== "Declined"
+  ) {
     return NextResponse.json(
       { error: 'Status must be "Confirmed" or "Declined".' },
       { status: 400 }
@@ -34,47 +68,30 @@ export async function PATCH(
   }
 
   try {
-    const user = await currentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
-    }
-
-    const email = user.emailAddresses.find(
-      (e) => e.id === user.primaryEmailAddressId
-    )?.emailAddress;
-
-    if (!email) {
-      return NextResponse.json(
-        { error: "No email address found on this account." },
-        { status: 400 }
-      );
-    }
-
-    // Resolve which spreadsheet belongs to this client
-    const client = await getClientByEmail(email);
-
-    if (!client) {
-      return NextResponse.json(
-        {
-          error:
-            "No client profile found for this account. Please contact the administrator to be added.",
-        },
-        { status: 404 }
-      );
-    }
+    const { client, error } = await resolveClient();
+    if (error) return error;
 
     // Make sure the row actually exists in THIS client's spreadsheet
-    const booking = await getBookingByRow(client.spreadsheetId, client.sheetName, rowIndex);
+    const booking = await getBookingByRow(
+      client.spreadsheetId,
+      client.sheetName,
+      rowIndex
+    );
 
     if (!booking) {
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     }
 
-    // Generate timestamp here so we can return it — the client sets the exact
-    // same value in local state for a consistent activity feed without a re-fetch.
     const updatedAt = new Date().toISOString();
-    await updateBookingStatus(client.spreadsheetId, client.sheetName, rowIndex, status, updatedAt);
-    return NextResponse.json({ success: true, status, updatedAt });
+    await updateBooking(
+      client.spreadsheetId,
+      client.sheetName,
+      rowIndex,
+      fields,
+      updatedAt
+    );
+
+    return NextResponse.json({ success: true, fields, updatedAt });
   } catch (error) {
     console.error(`[PATCH /api/bookings/${rowIndex}]`, error);
     return NextResponse.json(

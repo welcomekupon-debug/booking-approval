@@ -1,9 +1,10 @@
 import { SignIn } from "@clerk/nextjs";
+import { AuthPanel } from "@/components/AuthPanel";
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <AuthPanel>
       <SignIn />
-    </div>
+    </AuthPanel>
   );
 }

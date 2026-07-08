@@ -1,6 +1,13 @@
-import { google } from "googleapis";
-import type { Booking } from "@/types/booking";
+import { google, sheets_v4 } from "googleapis";
+import type { Booking, BookingUpdatePayload } from "@/types/booking";
 import type { ClientProfile } from "@/types/client";
+import {
+  BusinessSettings,
+  CustomerMeta,
+  DEFAULT_SETTINGS,
+  Service,
+  StaffMember,
+} from "@/types/app";
 
 function getAuthClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -27,14 +34,9 @@ function getSheetsClient() {
 }
 
 // ---------------------------------------------------------------------------
-// Master "Clients" spreadsheet
-//
-// This is YOUR spreadsheet — one row per client (business) that logs into
-// this app. It maps each client's login email to the Google Sheet that
-// contains THEIR bookings (a separate spreadsheet per client).
-//
-// Columns (1-indexed, A=1):
-// A: ClientName | B: ClientEmail | C: SpreadsheetID | D: SheetName | E: Phone | F: Notes
+// Master "Clients" spreadsheet — one row per business that logs into the app.
+// Columns: A: ClientName | B: ClientEmail | C: SpreadsheetID | D: SheetName |
+//          E: Phone | F: Notes
 // ---------------------------------------------------------------------------
 
 const CLIENTS_SHEET_ID = process.env.GOOGLE_CLIENTS_SHEET_ID!;
@@ -53,10 +55,6 @@ function rowToClientProfile(row: string[], index: number): ClientProfile {
   };
 }
 
-/**
- * Look up a client's profile (and the spreadsheet that holds their bookings)
- * by their login email. Returns null if no matching client record exists.
- */
 export async function getClientByEmail(
   email: string
 ): Promise<ClientProfile | null> {
@@ -74,7 +72,6 @@ export async function getClientByEmail(
   const rows = response.data.values ?? [];
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Row 0 is the header row — skip it
   const match = rows
     .slice(1)
     .map(rowToClientProfile)
@@ -86,16 +83,10 @@ export async function getClientByEmail(
 }
 
 // ---------------------------------------------------------------------------
-// Per-client bookings spreadsheet
-//
-// Each client has their own spreadsheet (its ID/tab name comes from their
-// row in the Clients sheet above). Columns (1-indexed, A=1):
-// A: Ime | B: Gmail | C: Datum | D: Ura | E: Status | F: Bookingid | G: UpdatedAt
+// Per-client bookings sheet — columns A:M
+// A: Ime | B: Gmail | C: Datum | D: Ura | E: Status | F: Bookingid |
+// G: UpdatedAt | H: Phone | I: Service | J: Duration | K: Notes | L: Price | M: Staff
 // ---------------------------------------------------------------------------
-
-function bookingDataRange(sheetName: string) {
-  return `${sheetName}!A:G`;
-}
 
 function rowToBooking(row: string[], index: number): Booking {
   return {
@@ -107,13 +98,15 @@ function rowToBooking(row: string[], index: number): Booking {
     Status: row[4] ?? "",
     Bookingid: row[5] ?? "",
     UpdatedAt: row[6] ?? "",
+    Phone: row[7] ?? "",
+    Service: row[8] ?? "",
+    Duration: row[9] ?? "",
+    Notes: row[10] ?? "",
+    Price: row[11] ?? "",
+    Staff: row[12] ?? "",
   };
 }
 
-/**
- * Fetch ALL bookings from a specific client's spreadsheet (no status filter).
- * This is the base fetch — all other booking queries call this.
- */
 export async function getAllBookings(
   spreadsheetId: string,
   sheetName: string
@@ -122,33 +115,13 @@ export async function getAllBookings(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: bookingDataRange(sheetName),
+    range: `${sheetName}!A:M`,
   });
 
   const rows = response.data.values ?? [];
-
-  // Row 0 is the header row — skip it
   return rows.slice(1).map(rowToBooking);
 }
 
-/**
- * Fetch bookings with Status = "Pending" from a specific client's spreadsheet.
- */
-export async function getPendingBookings(
-  spreadsheetId: string,
-  sheetName: string
-): Promise<Booking[]> {
-  const all = await getAllBookings(spreadsheetId, sheetName);
-  return all.filter(
-    (b) => b.Status?.toString().trim().toLowerCase() === "pending"
-  );
-}
-
-/**
- * Fetch a single booking row by its 1-based sheet row index from a
- * specific client's spreadsheet. Used to verify the row exists before
- * allowing a status update.
- */
 export async function getBookingByRow(
   spreadsheetId: string,
   sheetName: string,
@@ -158,7 +131,7 @@ export async function getBookingByRow(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A${rowIndex}:G${rowIndex}`,
+    range: `${sheetName}!A${rowIndex}:M${rowIndex}`,
   });
 
   const row = response.data.values?.[0];
@@ -167,29 +140,360 @@ export async function getBookingByRow(
   return rowToBooking(row, rowIndex - 2);
 }
 
+/** Column letters for each editable booking field. */
+const BOOKING_COLUMNS: Record<keyof BookingUpdatePayload, string> = {
+  datum: "C",
+  ura: "D",
+  status: "E",
+  phone: "H",
+  service: "I",
+  duration: "J",
+  notes: "K",
+  price: "L",
+  staff: "M",
+};
+
 /**
- * Write Status (column E) and UpdatedAt (column G) in a single batchUpdate
- * call so only one Google Sheets API request is needed per decision.
- * The caller supplies `updatedAt` so it can echo the exact same value back
- * to the client for consistent local state updates.
+ * Update any subset of editable booking fields in ONE batchUpdate call.
+ * Always stamps UpdatedAt (column G) with the supplied timestamp.
  */
-export async function updateBookingStatus(
+export async function updateBooking(
   spreadsheetId: string,
   sheetName: string,
   rowIndex: number,
-  status: "Confirmed" | "Declined",
+  fields: BookingUpdatePayload,
   updatedAt: string
 ): Promise<void> {
   const sheets = getSheetsClient();
 
+  const data: { range: string; values: string[][] }[] = [];
+
+  for (const [key, value] of Object.entries(fields)) {
+    const column = BOOKING_COLUMNS[key as keyof BookingUpdatePayload];
+    if (column && value !== undefined) {
+      data.push({
+        range: `${sheetName}!${column}${rowIndex}`,
+        values: [[String(value)]],
+      });
+    }
+  }
+
+  data.push({ range: `${sheetName}!G${rowIndex}`, values: [[updatedAt]] });
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Auxiliary tabs (Services / Staff / Settings / Customers) inside each
+// client's spreadsheet. Created automatically the first time they're needed.
+// ---------------------------------------------------------------------------
+
+const TAB_HEADERS: Record<string, string[]> = {
+  Services: ["Name", "Duration", "Price", "Color", "Active"],
+  Staff: ["Name", "Email", "Phone", "Role", "Color", "Active"],
+  Settings: ["Key", "Value"],
+  Customers: ["Email", "Phone", "Tags", "VIP", "Notes"],
+};
+
+/** Ensure the given tabs exist (adds them with a header row if missing). */
+export async function ensureTabs(
+  spreadsheetId: string,
+  tabs: string[]
+): Promise<void> {
+  const sheets = getSheetsClient();
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties.title",
+  });
+
+  const existing = new Set(
+    (meta.data.sheets ?? []).map((s) => s.properties?.title ?? "")
+  );
+
+  const missing = tabs.filter((t) => !existing.has(t));
+  if (missing.length === 0) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: missing.map((title) => ({ addSheet: { properties: { title } } })),
+    },
+  });
+
+  // Write header rows for the new tabs
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId,
     requestBody: {
-      valueInputOption: "USER_ENTERED",
-      data: [
-        { range: `${sheetName}!E${rowIndex}`, values: [[status]] },
-        { range: `${sheetName}!G${rowIndex}`, values: [[updatedAt]] },
-      ],
+      valueInputOption: "RAW",
+      data: missing.map((title) => ({
+        range: `${title}!A1`,
+        values: [TAB_HEADERS[title] ?? ["Key", "Value"]],
+      })),
     },
   });
+}
+
+async function readTab(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  range: string
+): Promise<string[][]> {
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
+    return (res.data.values ?? []).slice(1) as string[][]; // skip header
+  } catch {
+    return []; // tab doesn't exist yet
+  }
+}
+
+// ── Services ────────────────────────────────────────────────────────────────
+
+function rowToService(row: string[], index: number): Service {
+  return {
+    rowIndex: index + 2,
+    name: row[0] ?? "",
+    duration: row[1] ?? "",
+    price: row[2] ?? "",
+    color: row[3] ?? "",
+    active: (row[4] ?? "TRUE").toUpperCase() !== "FALSE",
+  };
+}
+
+export async function getServices(spreadsheetId: string): Promise<Service[]> {
+  const sheets = getSheetsClient();
+  const rows = await readTab(sheets, spreadsheetId, "Services!A:E");
+  return rows.map(rowToService).filter((s) => s.name);
+}
+
+export async function saveServices(
+  spreadsheetId: string,
+  services: Omit<Service, "rowIndex">[]
+): Promise<void> {
+  const sheets = getSheetsClient();
+  await ensureTabs(spreadsheetId, ["Services"]);
+
+  // Rewrite the whole tab (small data set — simplest consistent approach)
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: "Services!A2:E1000",
+  });
+
+  if (services.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "Services!A2",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: services.map((s) => [
+          s.name,
+          s.duration,
+          s.price,
+          s.color,
+          s.active ? "TRUE" : "FALSE",
+        ]),
+      },
+    });
+  }
+}
+
+// ── Staff ───────────────────────────────────────────────────────────────────
+
+function rowToStaff(row: string[], index: number): StaffMember {
+  return {
+    rowIndex: index + 2,
+    name: row[0] ?? "",
+    email: row[1] ?? "",
+    phone: row[2] ?? "",
+    role: row[3] ?? "",
+    color: row[4] ?? "",
+    active: (row[5] ?? "TRUE").toUpperCase() !== "FALSE",
+  };
+}
+
+export async function getStaff(spreadsheetId: string): Promise<StaffMember[]> {
+  const sheets = getSheetsClient();
+  const rows = await readTab(sheets, spreadsheetId, "Staff!A:F");
+  return rows.map(rowToStaff).filter((s) => s.name);
+}
+
+export async function saveStaff(
+  spreadsheetId: string,
+  staff: Omit<StaffMember, "rowIndex">[]
+): Promise<void> {
+  const sheets = getSheetsClient();
+  await ensureTabs(spreadsheetId, ["Staff"]);
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: "Staff!A2:F1000",
+  });
+
+  if (staff.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: "Staff!A2",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: staff.map((s) => [
+          s.name,
+          s.email,
+          s.phone,
+          s.role,
+          s.color,
+          s.active ? "TRUE" : "FALSE",
+        ]),
+      },
+    });
+  }
+}
+
+// ── Settings (key/value store, complex values JSON-encoded) ────────────────
+
+const JSON_KEYS = new Set(["hours", "holidays"]);
+const BOOL_KEYS = new Set([
+  "autoConfirm",
+  "allowCancellation",
+  "revenueEnabled",
+  "notifyEmailNewRequest",
+  "notifyEmailConfirmation",
+  "notifyEmailCancellation",
+  "notifyEmailDailySummary",
+  "notifySmsReminder",
+  "notifySmsConfirmation",
+  "onboardingComplete",
+]);
+const NUM_KEYS = new Set([
+  "defaultDuration",
+  "bufferMinutes",
+  "maxAdvanceDays",
+  "reminderHoursBefore",
+]);
+
+export async function getSettings(
+  spreadsheetId: string
+): Promise<BusinessSettings> {
+  const sheets = getSheetsClient();
+  const rows = await readTab(sheets, spreadsheetId, "Settings!A:B");
+
+  const settings: Record<string, unknown> = { ...DEFAULT_SETTINGS };
+
+  for (const [key, raw] of rows) {
+    if (!key || raw === undefined) continue;
+    if (JSON_KEYS.has(key)) {
+      try {
+        settings[key] = JSON.parse(raw);
+      } catch {
+        /* keep default */
+      }
+    } else if (BOOL_KEYS.has(key)) {
+      settings[key] = raw === "TRUE" || raw === "true";
+    } else if (NUM_KEYS.has(key)) {
+      const n = Number(raw);
+      if (!isNaN(n)) settings[key] = n;
+    } else {
+      settings[key] = raw;
+    }
+  }
+
+  return settings as unknown as BusinessSettings;
+}
+
+export async function saveSettings(
+  spreadsheetId: string,
+  settings: Partial<BusinessSettings>
+): Promise<void> {
+  const sheets = getSheetsClient();
+  await ensureTabs(spreadsheetId, ["Settings"]);
+
+  // Merge with existing so partial saves don't wipe other keys
+  const current = await getSettings(spreadsheetId);
+  const merged: Record<string, unknown> = { ...current, ...settings };
+
+  const rows = Object.entries(merged).map(([key, value]) => [
+    key,
+    JSON_KEYS.has(key)
+      ? JSON.stringify(value)
+      : typeof value === "boolean"
+        ? value
+          ? "TRUE"
+          : "FALSE"
+        : String(value ?? ""),
+  ]);
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: "Settings!A2:B1000",
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: "Settings!A2",
+    valueInputOption: "RAW",
+    requestBody: { values: rows },
+  });
+}
+
+// ── Customers metadata (tags / VIP / notes keyed by email) ─────────────────
+
+function rowToCustomerMeta(row: string[], index: number): CustomerMeta {
+  return {
+    rowIndex: index + 2,
+    email: (row[0] ?? "").trim().toLowerCase(),
+    phone: row[1] ?? "",
+    tags: (row[2] ?? "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+    vip: (row[3] ?? "").toUpperCase() === "TRUE",
+    notes: row[4] ?? "",
+  };
+}
+
+export async function getCustomerMeta(
+  spreadsheetId: string
+): Promise<CustomerMeta[]> {
+  const sheets = getSheetsClient();
+  const rows = await readTab(sheets, spreadsheetId, "Customers!A:E");
+  return rows.map(rowToCustomerMeta).filter((c) => c.email);
+}
+
+export async function upsertCustomerMeta(
+  spreadsheetId: string,
+  meta: Omit<CustomerMeta, "rowIndex">
+): Promise<void> {
+  const sheets = getSheetsClient();
+  await ensureTabs(spreadsheetId, ["Customers"]);
+
+  const existing = await getCustomerMeta(spreadsheetId);
+  const match = existing.find((c) => c.email === meta.email.trim().toLowerCase());
+
+  const values = [
+    [
+      meta.email.trim().toLowerCase(),
+      meta.phone,
+      meta.tags.join(", "),
+      meta.vip ? "TRUE" : "FALSE",
+      meta.notes,
+    ],
+  ];
+
+  if (match) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `Customers!A${match.rowIndex}:E${match.rowIndex}`,
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: "Customers!A:E",
+      valueInputOption: "RAW",
+      requestBody: { values },
+    });
+  }
 }

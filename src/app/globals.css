@@ -1,3 +1,144 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg: 250 250 249;
+  --surface: 255 255 255;
+  --border: 236 236 233;
+  --text: 28 28 26;
+  --text-muted: 117 117 111;
+  --gold: 185 154 85;
+}
+
+.dark {
+  --bg: 17 17 16;
+  --surface: 28 28 26;
+  --border: 51 51 47;
+  --text: 239 239 237;
+  --text-muted: 146 146 140;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Elegant thin scrollbars ─────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--border)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 9999px;
+}
+
+/* ── Focus rings ─────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgb(var(--gold) / 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Skeleton shimmer ────────────────────────────────────────────────────── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(var(--border) / 0.6);
+  border-radius: 0.5rem;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--surface) / 0.6),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ── Chart draw-in animations ────────────────────────────────────────────── */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--path-length, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.chart-line {
+  animation: draw-line 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes fade-in-late {
+  0%,
+  60% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.chart-area {
+  animation: fade-in-late 1.4s ease-out both;
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.chart-bar {
+  transform-origin: bottom;
+  animation: grow-y 0.7s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+}
+
+/* ── Stat value entrance ─────────────────────────────────────────────────── */
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stat-value {
+  animation: count-up 0.5s cubic-bezier(0.21, 1.02, 0.73, 1) both;
+}
+
+/* ── Drag & drop ─────────────────────────────────────────────────────────── */
+.drop-target {
+  outline: 2px dashed rgb(var(--gold) / 0.7);
+  outline-offset: -2px;
+  background-color: rgb(var(--gold) / 0.06);
+}
+.dragging {
+  opacity: 0.4;
+}
