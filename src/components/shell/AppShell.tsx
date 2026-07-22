@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="flex flex-col gap-2 text-xs text-ink-400">
               <span className="flex justify-between">
                 <span>Search</span>
-                <kbd className="font-semibold text-ink-500 dark:text-ink-300">⌘K</kbd>
+                <kbd className="font-semibold text-ink-500 dark:text-ink-300">CTRL K</kbd>
               </span>
               <span className="flex justify-between">
                 <span>Go to page</span>
@@ -235,7 +235,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             Search customers, appointments…
           </span>
           <kbd className="text-[10px] font-semibold border border-ink-200 dark:border-ink-700 rounded-md px-1.5 py-0.5">
-            ⌘K
+            CTRL K
           </kbd>
         </button>
 

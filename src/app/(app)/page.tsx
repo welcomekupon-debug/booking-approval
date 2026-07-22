@@ -55,6 +55,7 @@ function StatCard({
   hint,
   accent = false,
   delay = 0,
+  href,
 }: {
   label: string;
   value: string | number;
@@ -63,11 +64,12 @@ function StatCard({
   hint?: string;
   accent?: boolean;
   delay?: number;
+  href?: string;
 }) {
-  return (
+  const body = (
     <Card
       hover
-      className="p-5 animate-fade-up"
+      className={`p-5 animate-fade-up h-full ${href ? "cursor-pointer" : ""}`}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -90,6 +92,18 @@ function StatCard({
       </p>
       {hint && <p className="text-[11px] text-ink-300 dark:text-ink-500 mt-0.5">{hint}</p>}
     </Card>
+  );
+
+  if (!href) return body;
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
+      aria-label={`View ${label} in ${href.startsWith("/appointments") ? "Appointments" : href.startsWith("/calendar") ? "Calendar" : href.startsWith("/customers") ? "Customers" : href.startsWith("/analytics") ? "Analytics" : "app"}`}
+    >
+      {body}
+    </Link>
   );
 }
 
@@ -217,11 +231,11 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-          <StatCard label="Today" value={stats.todayCount} icon="clock" accent hint="appointments today" delay={0} />
-          <StatCard label="Upcoming" value={stats.upcoming} icon="calendar" hint="from tomorrow" delay={40} />
-          <StatCard label="Pending" value={stats.pending} icon="bell" hint="awaiting review" delay={80} />
-          <StatCard label="Confirmed" value={stats.confirmed} icon="check" hint="all time" delay={120} />
-          <StatCard label="Cancelled" value={stats.cancelled} icon="x" hint="all time" delay={160} />
+          <StatCard label="Today" value={stats.todayCount} icon="clock" accent hint="appointments today" delay={0} href="/calendar" />
+          <StatCard label="Upcoming" value={stats.upcoming} icon="calendar" hint="from tomorrow" delay={40} href="/appointments?date=upcoming" />
+          <StatCard label="Pending" value={stats.pending} icon="bell" hint="awaiting review" delay={80} href="/appointments?status=pending" />
+          <StatCard label="Confirmed" value={stats.confirmed} icon="check" hint="all time" delay={120} href="/appointments?status=confirmed" />
+          <StatCard label="Cancelled" value={stats.cancelled} icon="x" hint="all time" delay={160} href="/appointments?status=declined" />
           {settings.revenueEnabled && (
             <StatCard
               label="Revenue"
@@ -230,6 +244,7 @@ export default function DashboardPage() {
               trend={stats.revenue}
               hint="this month"
               delay={200}
+              href="/analytics"
             />
           )}
           <StatCard
@@ -239,9 +254,10 @@ export default function DashboardPage() {
             trend={stats.newCustomers}
             hint="this month"
             delay={240}
+            href="/customers"
           />
-          <StatCard label="Repeat customers" value={stats.repeatCustomers} icon="star" hint="booked more than once" delay={280} />
-          <StatCard label="Occupancy" value={`${stats.occupancyRate}%`} icon="chart" hint="next 7 days" delay={320} />
+          <StatCard label="Repeat customers" value={stats.repeatCustomers} icon="star" hint="booked more than once" delay={280} href="/customers" />
+          <StatCard label="Occupancy" value={`${stats.occupancyRate}%`} icon="chart" hint="next 7 days" delay={320} href="/calendar" />
           <StatCard
             label="This week"
             value={stats.weekBookings.value}
@@ -249,6 +265,7 @@ export default function DashboardPage() {
             trend={stats.weekBookings}
             hint="vs last week"
             delay={360}
+            href="/analytics"
           />
         </div>
       )}

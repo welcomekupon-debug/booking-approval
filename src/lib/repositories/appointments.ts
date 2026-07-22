@@ -173,8 +173,8 @@ export async function findConflicts(
     eq(appointments.salonId, salonId),
     inArray(appointments.status, blocking),
     // (start − before) < range.end AND (end + after) > range.start
-    sql`(${appointments.startsAt} - make_interval(mins => ${appointments.bufferBeforeMinutes})) < ${range.end}`,
-    sql`(${appointments.endsAt} + make_interval(mins => ${appointments.bufferAfterMinutes})) > ${range.start}`,
+    sql`(${appointments.startsAt} - make_interval(mins => ${appointments.bufferBeforeMinutes})) < ${range.end.toISOString()}`,
+    sql`(${appointments.endsAt} + make_interval(mins => ${appointments.bufferAfterMinutes})) > ${range.start.toISOString()}`,
   ];
   if (staffId) conditions.push(eq(appointments.staffId, staffId));
   if (excludeId) conditions.push(sql`${appointments.id} <> ${excludeId}`);

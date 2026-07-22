@@ -234,7 +234,7 @@ export function CommandPalette({
         <div className="flex items-center gap-4 px-4 py-2.5 border-t border-ink-100 dark:border-ink-800 text-[10px] text-ink-400">
           <span><kbd className="font-semibold">↑↓</kbd> navigate</span>
           <span><kbd className="font-semibold">↵</kbd> open</span>
-          <span className="ml-auto hidden sm:inline">Tip: press <kbd className="font-semibold">⌘K</kbd> anywhere</span>
+          <span className="ml-auto hidden sm:inline">Tip: press <kbd className="font-semibold">CTRL K</kbd> anywhere</span>
         </div>
       </div>
     </div>
