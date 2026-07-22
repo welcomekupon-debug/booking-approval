@@ -96,4 +96,12 @@ export const availabilityQuerySchema = z.object({
     .union([z.array(zUuid), z.string().transform((s) => s.split(",").filter(Boolean))])
     .pipe(z.array(zUuid).max(10)),
   staffId: zUuid.optional(),
+  /** Let the customer choose how tightly slots are packed on the booking page */
+  granularityMinutes: z.coerce
+    .number()
+    .int()
+    .optional()
+    .refine((v) => v === undefined || v === 15 || v === 30, {
+      message: "granularityMinutes must be 15 or 30",
+    }),
 });

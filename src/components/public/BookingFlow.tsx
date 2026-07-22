@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Field, Input, Skeleton, Textarea } from "@/components/ui";
+import { Button, Field, Input, Segmented, Skeleton, Textarea } from "@/components/ui";
 import { Icon } from "@/components/ui/icons";
 
 /**
@@ -75,6 +75,7 @@ export function BookingFlow({
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [staffId, setStaffId] = useState<string>("");
   const [weekStart, setWeekStart] = useState(isoToday());
+  const [granularity, setGranularity] = useState<"15" | "30">("15");
   const [slotsByDay, setSlotsByDay] = useState<Record<string, Slot[]>>({});
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [activeDay, setActiveDay] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export function BookingFlow({
         date: weekStart,
         days: "7",
         serviceIds: selectedServices.join(","),
+        granularityMinutes: granularity,
       });
       if (staffId) params.set("staffId", staffId);
 
@@ -147,11 +149,16 @@ export function BookingFlow({
     } finally {
       setSlotsLoading(false);
     }
-  }, [salon.slug, weekStart, selectedServices, staffId]);
+  }, [salon.slug, weekStart, selectedServices, staffId, granularity]);
 
   useEffect(() => {
     if (step === "time") loadSlots();
   }, [step, loadSlots]);
+
+  // Previously picked slot may not exist on the new grid — clear it
+  useEffect(() => {
+    setSlot(null);
+  }, [granularity]);
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
@@ -400,6 +407,21 @@ export function BookingFlow({
             <p className="text-sm text-ink-400 mb-5">
               Times shown in {salon.timezone.replace("_", " ")} time.
             </p>
+
+            {/* Slot spacing */}
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-xs font-semibold text-ink-500 dark:text-ink-400">
+                Show times every
+              </p>
+              <Segmented
+                options={[
+                  { value: "15", label: "15 min" },
+                  { value: "30", label: "30 min" },
+                ]}
+                value={granularity}
+                onChange={setGranularity}
+              />
+            </div>
 
             {/* Week navigation */}
             <div className="flex items-center justify-between mb-4">

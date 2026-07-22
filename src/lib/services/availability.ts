@@ -44,6 +44,8 @@ export interface SlotQuery {
   date: string;
   serviceIds: string[];
   staffId?: string;
+  /** Overrides the salon's default slot grid (e.g. customer picked 15 vs 30 min spacing) */
+  granularityMinutes?: number;
 }
 
 export interface Slot {
@@ -171,7 +173,7 @@ export async function getAvailableSlots(query: SlotQuery): Promise<Slot[]> {
       ),
   ]);
 
-  const stepMs = settings.slotGranularityMinutes * 60_000;
+  const stepMs = (query.granularityMinutes ?? settings.slotGranularityMinutes) * 60_000;
   const durationMs = durationMinutes * 60_000;
   const bufferBeforeMs = bufferBefore * 60_000;
   const bufferAfterMs = bufferAfter * 60_000;
