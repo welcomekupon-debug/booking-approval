@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useWorkspace } from "@/components/providers/WorkspaceProvider";
 import { PageHeader } from "@/components/PageHeader";
 import { AppointmentDrawer } from "@/components/appointments/AppointmentDrawer";
+import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 import {
   Avatar,
   Badge,
@@ -195,6 +196,7 @@ function AppointmentsContent() {
   const [acting, setActing] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedFilter[]>([]);
+  const [newOpen, setNewOpen] = useState(false);
 
   useAutoDismiss(toast, () => setToast(null));
 
@@ -281,9 +283,14 @@ function AppointmentsContent() {
             : `${filtered.length} ${filtered.length === 1 ? "appointment" : "appointments"}${isFiltered ? " matching filters" : ""}`
         }
         actions={
-          <Button variant="secondary" icon="refresh" onClick={refresh}>
-            Refresh
-          </Button>
+          <>
+            <Button variant="secondary" icon="refresh" onClick={refresh}>
+              Refresh
+            </Button>
+            <Button variant="gold" icon="plus" onClick={() => setNewOpen(true)}>
+              New appointment
+            </Button>
+          </>
         }
       />
 
@@ -413,6 +420,8 @@ function AppointmentsContent() {
       {openBooking && (
         <AppointmentDrawer booking={openBooking} onClose={() => setOpenRow(null)} />
       )}
+
+      <NewAppointmentModal open={newOpen} onClose={() => setNewOpen(false)} />
 
       <Toast message={toast} />
     </div>

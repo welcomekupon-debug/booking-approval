@@ -17,6 +17,7 @@ import {
   useAutoDismiss,
 } from "@/components/ui";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import {
   DAY_KEYS,
   type BusinessSettings,
@@ -31,6 +32,7 @@ type Tab =
   | "staff"
   | "services"
   | "booking"
+  | "integrations"
   | "notifications"
   | "security"
   | "billing";
@@ -42,6 +44,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "staff", label: "Staff", icon: "users" },
   { id: "services", label: "Services", icon: "tag" },
   { id: "booking", label: "Booking preferences", icon: "calendar" },
+  { id: "integrations", label: "Online booking & API", icon: "send" },
   { id: "notifications", label: "Notifications", icon: "bell" },
   { id: "security", label: "Security", icon: "shield" },
   { id: "billing", label: "Subscription & billing", icon: "card" },
@@ -232,6 +235,22 @@ function SettingsContent() {
                     value={form.website}
                     onChange={(e) => patch({ website: e.target.value })}
                   />
+                </Field>
+                <Field label="Timezone" hint="All appointment times use this.">
+                  <Select
+                    value={form.timezone}
+                    onChange={(e) => patch({ timezone: e.target.value })}
+                  >
+                    {[
+                      "Europe/Ljubljana", "Europe/Vienna", "Europe/Berlin",
+                      "Europe/Zagreb", "Europe/Rome", "Europe/Paris",
+                      "Europe/Madrid", "Europe/London", "Europe/Warsaw",
+                      "Europe/Athens", "Europe/Helsinki", "America/New_York",
+                      "America/Chicago", "America/Los_Angeles", "Australia/Sydney",
+                    ].map((tz) => (
+                      <option key={tz} value={tz}>{tz.replace("_", " ")}</option>
+                    ))}
+                  </Select>
                 </Field>
                 <div className="sm:col-span-2">
                   <Field label="Address">
@@ -614,6 +633,8 @@ function SettingsContent() {
               </div>
             </SectionCard>
           )}
+
+          {tab === "integrations" && <IntegrationsSection />}
 
           {tab === "notifications" && (
             <SectionCard

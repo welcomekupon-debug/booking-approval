@@ -170,6 +170,7 @@ export function mapSettings(
     logoUrl: salon.logoUrl ?? "",
     brandColor: salon.brandColor ?? "#B99A55",
     currency: salon.currency,
+    timezone: salon.timezone,
     hours: hoursMap,
     holidays,
     defaultDuration: s.defaultDurationMinutes,

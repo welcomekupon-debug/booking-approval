@@ -32,6 +32,7 @@ const legacySettings = z
     logoUrl: z.string().trim().max(1000).optional(),
     brandColor: z.string().trim().max(20).optional(),
     currency: z.string().trim().length(3).optional(),
+    timezone: z.string().trim().max(64).optional(),
     hours: z.record(z.string(), dayHours).optional(),
     holidays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
     defaultDuration: z.coerce.number().int().min(5).max(600).optional(),
@@ -91,6 +92,7 @@ export async function PUT(request: NextRequest) {
       ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
       ...(body.brandColor !== undefined && { brandColor: body.brandColor }),
       ...(body.currency !== undefined && { currency: body.currency }),
+      ...(body.timezone !== undefined && { timezone: body.timezone }),
     });
 
     // ── Typed settings ───────────────────────────────────────────────────

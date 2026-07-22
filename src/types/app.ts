@@ -68,6 +68,8 @@ export interface BusinessSettings {
   logoUrl: string;
   brandColor: string;
   currency: string;
+  /** IANA timezone, e.g. "Europe/Ljubljana" */
+  timezone: string;
   hours: Record<string, DayHours>; // keys: mon..sun
   holidays: string[]; // ISO dates
   defaultDuration: number; // minutes
@@ -98,6 +100,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   logoUrl: "",
   brandColor: "#B99A55",
   currency: "EUR",
+  timezone: "Europe/Ljubljana",
   hours: {
     mon: { open: true, from: "09:00", to: "17:00" },
     tue: { open: true, from: "09:00", to: "17:00" },
@@ -124,17 +127,36 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   onboardingComplete: false,
 };
 
+/** Notification row as serialized by /api/workspace */
+export interface ServerNotification {
+  id: string;
+  type:
+    | "new_request"
+    | "confirmation"
+    | "cancellation"
+    | "reminder"
+    | "missed"
+    | "system";
+  title: string;
+  body: string;
+  appointmentId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
 /** Everything the app needs, fetched once from /api/workspace */
 export interface WorkspaceData {
   clientName: string;
+  salonSlug: string;
   bookings: Booking[];
   services: Service[];
   staff: StaffMember[];
   customerMeta: CustomerMeta[];
+  notifications: ServerNotification[];
   settings: BusinessSettings;
 }
 
-// ── Notifications (derived client-side; DB-backed in Phase 5) ──────────────
+// ── Notification view model (server rows + client-derived reminders) ───────
 export type NotificationKind =
   | "request"
   | "confirmation"
