@@ -44,8 +44,6 @@ export interface SlotQuery {
   date: string;
   serviceIds: string[];
   staffId?: string;
-  /** Overrides the salon's default slot grid (e.g. customer picked 15 vs 30 min spacing) */
-  granularityMinutes?: number;
 }
 
 export interface Slot {
@@ -173,11 +171,19 @@ export async function getAvailableSlots(query: SlotQuery): Promise<Slot[]> {
       ),
   ]);
 
-  const stepMs = (query.granularityMinutes ?? settings.slotGranularityMinutes) * 60_000;
   const durationMs = durationMinutes * 60_000;
   const bufferBeforeMs = bufferBefore * 60_000;
   const bufferAfterMs = bufferAfter * 60_000;
   const minStartMs = Date.now() + settings.minNoticeMinutes * 60_000;
+
+  // Slot spacing follows the selected service's own duration — a 45-minute
+  // service is offered every 45 minutes, not on a disconnected fixed grid —
+  // so bookings pack back-to-back with zero wasted calendar time. The
+  // salon's chosen grid (Settings → Booking preferences) still acts as a
+  // floor, so very short services don't flood the list with options closer
+  // together than the owner wants.
+  const gridMs = settings.slotGranularityMinutes * 60_000;
+  const stepMs = Math.max(durationMs, gridMs);
 
   const slots: Slot[] = [];
   const seenStarts = new Set<number>();

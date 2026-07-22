@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
       days: query.days,
       serviceIds: query.serviceIds,
       staffId: query.staffId,
-      granularityMinutes: query.granularityMinutes,
     });
 
     return {

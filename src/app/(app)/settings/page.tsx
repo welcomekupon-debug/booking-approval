@@ -519,6 +519,23 @@ function SettingsContent() {
               footer={saveBtn(persistServices)}
             >
               <div className="flex flex-col gap-3">
+                {serviceList.length > 0 && (
+                  <div className="hidden sm:grid grid-cols-[1.6fr_0.8fr_0.8fr_auto_auto] gap-2 px-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                      Service name
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                      Duration (min)
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                      Price ({form.currency})
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                      Status
+                    </span>
+                    <span />
+                  </div>
+                )}
                 {serviceList.map((s, i) => (
                   <div
                     key={i}
