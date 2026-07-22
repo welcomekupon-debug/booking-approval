@@ -41,8 +41,8 @@ import type { Booking } from "@/types/booking";
 
 type View = "day" | "week" | "month";
 
-const DAY_START = 7 * 60; // 07:00
-const DAY_END = 21 * 60; // 21:00
+const DAY_START = 0; // 00:00
+const DAY_END = 24 * 60; // 24:00
 const PX_PER_MIN = 56 / 60; // 56px per hour
 
 const STATUS_CHIP: Record<string, string> = {
@@ -73,8 +73,18 @@ export default function CalendarPage() {
   const [dragRow, setDragRow] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useAutoDismiss(toast, () => setToast(null));
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -452,6 +462,16 @@ export default function CalendarPage() {
       <PageHeader
         title="Calendar"
         subtitle="Drag an appointment to reschedule it — changes save instantly."
+        actions={
+          <Button
+            variant="secondary"
+            icon="refresh"
+            loading={refreshing}
+            onClick={handleRefresh}
+          >
+            Refresh
+          </Button>
+        }
       />
 
       {/* Toolbar */}

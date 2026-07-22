@@ -56,6 +56,21 @@ const DAY_LABELS: Record<string, string> = {
   fri: "Friday", sat: "Saturday", sun: "Sunday",
 };
 
+/** Every ISO date from `from` to `to`, inclusive. Capped at a year to avoid runaway input. */
+function isoDateRange(from: string, to: string): string[] {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
+
+  const days: string[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end && days.length < 366) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return days;
+}
+
 function SectionCard({
   title,
   description,
@@ -100,7 +115,8 @@ function SettingsContent() {
   const [form, setForm] = useState<BusinessSettings>(settings);
   const [serviceList, setServiceList] = useState<Service[]>(services);
   const [staffList, setStaffList] = useState<StaffMember[]>(staff);
-  const [holidayInput, setHolidayInput] = useState("");
+  const [holidayFrom, setHolidayFrom] = useState("");
+  const [holidayTo, setHolidayTo] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [granularityMode, setGranularityMode] = useState<
@@ -398,25 +414,44 @@ function SettingsContent() {
                 description="Days you're closed outside the weekly schedule."
                 footer={saveBtn(() => persistSettings())}
               >
-                <div className="flex gap-2 mb-4">
-                  <Input
-                    type="date"
-                    value={holidayInput}
-                    onChange={(e) => setHolidayInput(e.target.value)}
-                    className="max-w-[200px]"
-                  />
+                <div className="flex flex-wrap items-end gap-2 mb-2">
+                  <Field label="From">
+                    <Input
+                      type="date"
+                      value={holidayFrom}
+                      onChange={(e) => setHolidayFrom(e.target.value)}
+                      className="max-w-[170px]"
+                    />
+                  </Field>
+                  <Field label="To (optional)">
+                    <Input
+                      type="date"
+                      value={holidayTo}
+                      min={holidayFrom || undefined}
+                      onChange={(e) => setHolidayTo(e.target.value)}
+                      className="max-w-[170px]"
+                    />
+                  </Field>
                   <Button
                     variant="secondary"
                     icon="plus"
-                    disabled={!holidayInput || form.holidays.includes(holidayInput)}
+                    disabled={!holidayFrom || (!!holidayTo && holidayTo < holidayFrom)}
                     onClick={() => {
-                      patch({ holidays: [...form.holidays, holidayInput] });
-                      setHolidayInput("");
+                      const range = isoDateRange(holidayFrom, holidayTo || holidayFrom);
+                      patch({
+                        holidays: Array.from(new Set([...form.holidays, ...range])),
+                      });
+                      setHolidayFrom("");
+                      setHolidayTo("");
                     }}
                   >
                     Add
                   </Button>
                 </div>
+                <p className="text-[11px] text-ink-400 mb-4">
+                  Leave &ldquo;To&rdquo; empty for a single day, or set both to close a
+                  whole range — e.g. 24.7. to 28.7.
+                </p>
                 {holidays.length === 0 ? (
                   <p className="text-sm text-ink-400">No holidays added yet.</p>
                 ) : (
