@@ -1,18 +1,22 @@
 import type { Booking } from "./booking";
 
-// ── Services tab: A: Name | B: Duration | C: Price | D: Color | E: Active ──
+// ---------------------------------------------------------------------------
+// Frontend view-models. Sheet-era shapes kept stable through the Postgres
+// migration; ids are now UUIDs. Phase 5 replaces these with the DB types.
+// ---------------------------------------------------------------------------
+
 export interface Service {
-  rowIndex: number;
+  /** UUID; absent on freshly added, not-yet-saved rows */
+  id?: string;
   name: string;
   duration: string; // minutes
-  price: string;
+  price: string; // decimal string in salon currency
   color: string;
   active: boolean;
 }
 
-// ── Staff tab: A: Name | B: Email | C: Phone | D: Role | E: Color | F: Active
 export interface StaffMember {
-  rowIndex: number;
+  id?: string;
   name: string;
   email: string;
   phone: string;
@@ -21,9 +25,7 @@ export interface StaffMember {
   active: boolean;
 }
 
-// ── Customers tab: A: Email | B: Phone | C: Tags | D: VIP | E: Notes ───────
 export interface CustomerMeta {
-  rowIndex: number;
   email: string;
   phone: string;
   tags: string[];
@@ -50,7 +52,6 @@ export interface Customer {
   bookings: Booking[];
 }
 
-// ── Settings tab: key/value store (complex values stored as JSON) ──────────
 export interface DayHours {
   open: boolean;
   from: string; // "09:00"
@@ -133,7 +134,7 @@ export interface WorkspaceData {
   settings: BusinessSettings;
 }
 
-// ── Notifications (derived client-side) ────────────────────────────────────
+// ── Notifications (derived client-side; DB-backed in Phase 5) ──────────────
 export type NotificationKind =
   | "request"
   | "confirmation"

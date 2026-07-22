@@ -6,20 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.4.3",
+    "@next/env": "^16.2.11",
+    "drizzle-orm": "^0.45.2",
+    "googleapis": "^140.0.1",
     "next": "^15.3.0",
+    "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "googleapis": "^140.0.1",
-    "@clerk/nextjs": "^7.4.3"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.3.0",
     "postcss": "^8.4.39",

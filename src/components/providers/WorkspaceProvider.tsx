@@ -36,13 +36,13 @@ interface WorkspaceContextValue {
   unreadCount: number;
   refresh: () => Promise<void>;
   updateBooking: (
-    rowIndex: number,
+    id: string,
     fields: BookingUpdatePayload
   ) => Promise<void>;
   saveServices: (services: Service[]) => Promise<void>;
   saveStaff: (staff: StaffMember[]) => Promise<void>;
   saveSettings: (partial: Partial<BusinessSettings>) => Promise<void>;
-  saveCustomerMeta: (meta: Omit<CustomerMeta, "rowIndex">) => Promise<void>;
+  saveCustomerMeta: (meta: Omit<CustomerMeta, "id">) => Promise<void>;
   markAllNotificationsRead: () => void;
   isNotificationRead: (id: string) => boolean;
 }
@@ -98,8 +98,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // ── Mutations (optimistic where safe) ─────────────────────────────────────
 
   const updateBooking = useCallback(
-    async (rowIndex: number, fields: BookingUpdatePayload) => {
-      const res = await fetch(`/api/bookings/${rowIndex}`, {
+    async (id: string, fields: BookingUpdatePayload) => {
+      const res = await fetch(`/api/bookings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(fields),
@@ -115,7 +115,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return {
           ...prev,
           bookings: prev.bookings.map((b) =>
-            b.rowIndex === rowIndex
+            b.id === id
               ? {
                   ...b,
                   Status: fields.status ?? b.Status,
@@ -173,7 +173,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   const saveCustomerMeta = useCallback(
-    async (meta: Omit<CustomerMeta, "rowIndex">) => {
+    async (meta: Omit<CustomerMeta, "id">) => {
       const res = await fetch("/api/customers", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -184,7 +184,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (!prev) return prev;
         const email = meta.email.trim().toLowerCase();
         const exists = prev.customerMeta.some((c) => c.email === email);
-        const entry: CustomerMeta = { rowIndex: 0, ...meta, email };
+        const entry: CustomerMeta = { ...meta, email };
         return {
           ...prev,
           customerMeta: exists

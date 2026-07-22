@@ -1,14 +1,19 @@
 // ---------------------------------------------------------------------------
-// Booking row — columns A:M of each client's bookings sheet.
-// A: Ime | B: Gmail | C: Datum | D: Ura | E: Status | F: Bookingid |
-// G: UpdatedAt | H: Phone | I: Service | J: Duration | K: Notes | L: Price | M: Staff
-// Columns H–M are new; older rows simply have blanks there.
+// Frontend view-model for an appointment.
+//
+// These field names date back to the Google Sheets era (Ime/Datum/Ura…) and
+// are kept temporarily so the UI layer stayed stable through the Postgres
+// migration. The `id` is now the appointment UUID. Phase 5 renames these to
+// the native DB shapes.
 // ---------------------------------------------------------------------------
 export interface Booking {
-  rowIndex: number;
+  /** Appointment UUID (primary key in Postgres) */
+  id: string;
   Ime: string;
   Gmail: string;
+  /** Salon-local date, DD.MM.YYYY */
   Datum: string;
+  /** Salon-local time, HH:MM */
   Ura: string;
   Status: string;
   Bookingid: string;
@@ -17,12 +22,12 @@ export interface Booking {
   Service: string;
   Duration: string; // minutes, as string ("30")
   Notes: string;
-  Price: string; // numeric string ("45")
+  Price: string; // decimal string in salon currency ("45")
   Staff: string;
 }
 
 export interface ActivityItem {
-  rowIndex: number;
+  id: string;
   Ime: string;
   Status: string;
   UpdatedAt: string;

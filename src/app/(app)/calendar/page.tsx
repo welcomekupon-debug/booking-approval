@@ -69,8 +69,8 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [query, setQuery] = useState("");
-  const [openRow, setOpenRow] = useState<number | null>(null);
-  const [dragRow, setDragRow] = useState<number | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [dragRow, setDragRow] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export default function CalendarPage() {
         );
   }, [visible]);
 
-  const openBooking = bookings.find((b) => b.rowIndex === openRow) ?? null;
+  const openBooking = bookings.find((b) => b.id === openRow) ?? null;
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -124,9 +124,9 @@ export default function CalendarPage() {
   // ── Drag & drop ───────────────────────────────────────────────────────────
 
   function onDragStart(e: DragEvent, b: Booking) {
-    setDragRow(b.rowIndex);
+    setDragRow(b.id);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(b.rowIndex));
+    e.dataTransfer.setData("text/plain", String(b.id));
   }
 
   async function onDrop(payload: DropPayload) {
@@ -135,7 +135,7 @@ export default function CalendarPage() {
     setDragRow(null);
     if (row === null) return;
 
-    const booking = bookings.find((b) => b.rowIndex === row);
+    const booking = bookings.find((b) => b.id === row);
     if (!booking) return;
 
     const newDatum = toSheetDate(payload.date);
@@ -186,12 +186,12 @@ export default function CalendarPage() {
         }}
         onClick={(e) => {
           e.stopPropagation();
-          setOpenRow(b.rowIndex);
+          setOpenRow(b.id);
         }}
         style={style}
         title={`${b.Ime}${b.Service ? ` · ${b.Service}` : ""} · ${b.Ura}${b.Staff ? ` · ${b.Staff}` : ""}`}
         className={`group/event text-left border rounded-lg px-2 py-1 text-[11px] font-semibold leading-tight truncate cursor-grab active:cursor-grabbing transition-all duration-150 shadow-sm hover:shadow-md hover:z-20 ${chipClass(status)} ${
-          dragRow === b.rowIndex ? "dragging" : ""
+          dragRow === b.id ? "dragging" : ""
         }`}
       >
         {!compact && <span className="opacity-80">{b.Ura} </span>}
@@ -310,7 +310,7 @@ export default function CalendarPage() {
                     parseInt(b.Duration, 10) || settings.defaultDuration || 30;
                   return (
                     <EventChip
-                      key={b.rowIndex}
+                      key={b.id}
                       b={b}
                       style={{
                         position: "absolute",
@@ -401,7 +401,7 @@ export default function CalendarPage() {
                   </span>
                   <div className="flex flex-col gap-1">
                     {events.slice(0, 3).map((b) => (
-                      <EventChip key={b.rowIndex} b={b} />
+                      <EventChip key={b.id} b={b} />
                     ))}
                     {events.length > 3 && (
                       <button

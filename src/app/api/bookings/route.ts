@@ -1,27 +1,20 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
-import { getAllBookings } from "@/lib/sheets";
+import { handleRoute } from "@/lib/api";
+import { requireTenant } from "@/lib/auth/context";
+import { listAppointments } from "@/lib/repositories/appointments";
+import { mapAppointment } from "@/lib/legacy/mapper";
 
 export async function GET() {
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
-
-    const bookings = await getAllBookings(
-      client.spreadsheetId,
-      client.sheetName
-    );
-    return NextResponse.json({
-      bookings,
-      client: { clientName: client.clientName },
+  return handleRoute(async () => {
+    const ctx = await requireTenant();
+    const { items } = await listAppointments(ctx.salon.id, {
+      limit: 200,
+      order: "desc",
     });
-  } catch (error) {
-    console.error("[GET /api/bookings]", error);
-    return NextResponse.json(
-      { error: "Failed to fetch bookings. Check server logs for details." },
-      { status: 500 }
-    );
-  }
+    return {
+      bookings: items.map((a) => mapAppointment(a, ctx.salon.timezone)),
+      client: { clientName: ctx.salon.name },
+    };
+  });
 }

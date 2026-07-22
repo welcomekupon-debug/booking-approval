@@ -1,37 +1,64 @@
-import { NextRequest, NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
-import { saveServices } from "@/lib/sheets";
-import type { Service } from "@/types/app";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { handleRoute } from "@/lib/api";
+import { requireRole, requireTenant } from "@/lib/auth/context";
+import {
+  createService,
+  listServices,
+  softDeleteService,
+  updateService,
+} from "@/lib/repositories/catalog";
+import { decimalToCents } from "@/lib/legacy/mapper";
 
-/** PUT /api/services — replace the full services list. */
+const legacyServiceList = z.object({
+  services: z.array(
+    z.object({
+      id: z.string().uuid().optional(),
+      name: z.string().trim().min(1).max(200),
+      duration: z.string().trim(),
+      price: z.string().trim(),
+      color: z.string().trim().max(20).default(""),
+      active: z.boolean().default(true),
+    })
+  ),
+});
+
+/**
+ * Legacy full-list PUT translated into a diff:
+ * rows with a known id are updated, new rows created, missing ids soft-deleted.
+ */
 export async function PUT(request: NextRequest) {
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
+  return handleRoute(async () => {
+    const ctx = await requireTenant();
+    requireRole(ctx, "manager");
+    const salonId = ctx.salon.id;
 
-    const body = await request.json().catch(() => null);
-    if (!body || !Array.isArray(body.services)) {
-      return NextResponse.json(
-        { error: "Body must contain a services array." },
-        { status: 400 }
-      );
+    const { services: incoming } = legacyServiceList.parse(
+      await request.json()
+    );
+
+    const existing = await listServices(salonId, { includeInactive: true });
+    const incomingIds = new Set(incoming.map((s) => s.id).filter(Boolean));
+
+    for (const row of incoming) {
+      const fields = {
+        name: row.name,
+        durationMinutes: parseInt(row.duration, 10) || 30,
+        priceCents: decimalToCents(row.price) ?? 0,
+        color: row.color || null,
+        isActive: row.active,
+      };
+      if (row.id && existing.some((e) => e.id === row.id)) {
+        await updateService(salonId, row.id, fields);
+      } else {
+        await createService(salonId, fields);
+      }
     }
 
-    const services = (body.services as Service[]).map((s) => ({
-      name: String(s.name ?? "").slice(0, 200),
-      duration: String(s.duration ?? ""),
-      price: String(s.price ?? ""),
-      color: String(s.color ?? ""),
-      active: s.active !== false,
-    }));
+    for (const gone of existing.filter((e) => !incomingIds.has(e.id))) {
+      await softDeleteService(salonId, gone.id);
+    }
 
-    await saveServices(client.spreadsheetId, services);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[PUT /api/services]", error);
-    return NextResponse.json(
-      { error: "Failed to save services." },
-      { status: 500 }
-    );
-  }
+    return { success: true };
+  });
 }

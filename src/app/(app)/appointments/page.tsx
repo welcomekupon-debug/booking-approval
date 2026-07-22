@@ -191,8 +191,8 @@ function AppointmentsContent() {
   const [date, setDate] = useState<DateFilter>(
     (params.get("date") as DateFilter) || "all"
   );
-  const [openRow, setOpenRow] = useState<number | null>(null);
-  const [acting, setActing] = useState<number | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedFilter[]>([]);
 
@@ -224,12 +224,12 @@ function AppointmentsContent() {
   }, [bookings, query, status, date]);
 
   const isFiltered = query !== "" || status !== "all" || date !== "all";
-  const openBooking = bookings.find((b) => b.rowIndex === openRow) ?? null;
+  const openBooking = bookings.find((b) => b.id === openRow) ?? null;
 
-  async function decide(rowIndex: number, next: "Confirmed" | "Declined") {
-    setActing(rowIndex);
+  async function decide(id: string, next: "Confirmed" | "Declined") {
+    setActing(id);
     try {
-      await updateBooking(rowIndex, { status: next });
+      await updateBooking(id, { status: next });
       setToast(next === "Confirmed" ? "Appointment confirmed" : "Appointment declined");
     } catch {
       setToast("Something went wrong — please try again");
@@ -399,12 +399,12 @@ function AppointmentsContent() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((b, i) => (
             <AppointmentCard
-              key={b.rowIndex}
+              key={b.id}
               booking={b}
               index={i}
-              acting={acting === b.rowIndex}
-              onOpen={() => setOpenRow(b.rowIndex)}
-              onDecide={(s) => decide(b.rowIndex, s)}
+              acting={acting === b.id}
+              onOpen={() => setOpenRow(b.id)}
+              onDecide={(s) => decide(b.id, s)}
             />
           ))}
         </div>

@@ -1,54 +1,70 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
+import { handleRoute } from "@/lib/api";
+import { getTenantContext } from "@/lib/auth/context";
+import { listAppointments } from "@/lib/repositories/appointments";
+import { listServices, listStaff } from "@/lib/repositories/catalog";
+import { listCustomers } from "@/lib/repositories/customers";
+import { listBlockedTimes, listBusinessHours } from "@/lib/repositories/hours";
+import { getSettings } from "@/lib/repositories/settings";
 import {
-  ensureTabs,
-  getAllBookings,
-  getCustomerMeta,
-  getServices,
-  getSettings,
-  getStaff,
-} from "@/lib/sheets";
+  mapAppointment,
+  mapCustomerMeta,
+  mapService,
+  mapSettings,
+  mapStaff,
+} from "@/lib/legacy/mapper";
+import { DEFAULT_SETTINGS } from "@/types/app";
 
 /**
- * Single bootstrap endpoint — returns everything the app needs in one call.
- * Also makes sure the auxiliary tabs exist in the client's spreadsheet.
+ * Bootstrap endpoint. Same response contract as the Sheets era, now served
+ * from Postgres. A signed-in user without a salon gets an empty workspace
+ * with onboardingComplete=false, which routes them into onboarding.
  */
 export async function GET() {
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
+  return handleRoute(async () => {
+    const { ctx } = await getTenantContext();
 
-    await ensureTabs(client.spreadsheetId, [
-      "Services",
-      "Staff",
-      "Settings",
-      "Customers",
-    ]);
+    if (!ctx) {
+      return {
+        clientName: "",
+        bookings: [],
+        services: [],
+        staff: [],
+        customerMeta: [],
+        settings: { ...DEFAULT_SETTINGS, onboardingComplete: false },
+      };
+    }
 
-    const [bookings, services, staff, settings, customerMeta] =
+    const { salon } = ctx;
+
+    // Bounded window: everything upcoming (1 year) + 1 year of history.
+    const now = Date.now();
+    const yearMs = 365 * 24 * 3600_000;
+
+    const [appointments, services, staff, customers, settings, hours, blocks] =
       await Promise.all([
-        getAllBookings(client.spreadsheetId, client.sheetName),
-        getServices(client.spreadsheetId),
-        getStaff(client.spreadsheetId),
-        getSettings(client.spreadsheetId),
-        getCustomerMeta(client.spreadsheetId),
+        listAppointments(salon.id, {
+          from: new Date(now - yearMs),
+          to: new Date(now + yearMs),
+          limit: 200,
+          order: "desc",
+        }),
+        listServices(salon.id, { includeInactive: true }),
+        listStaff(salon.id, { includeInactive: true }),
+        listCustomers(salon.id, { limit: 200 }),
+        getSettings(salon.id),
+        listBusinessHours(salon.id),
+        listBlockedTimes(salon.id),
       ]);
 
-    return NextResponse.json({
-      clientName: client.clientName,
-      bookings,
-      services,
-      staff,
-      settings,
-      customerMeta,
-    });
-  } catch (error) {
-    console.error("[GET /api/workspace]", error);
-    return NextResponse.json(
-      { error: "Failed to load workspace data. Check server logs for details." },
-      { status: 500 }
-    );
-  }
+    return {
+      clientName: salon.name,
+      bookings: appointments.items.map((a) => mapAppointment(a, salon.timezone)),
+      services: services.map(mapService),
+      staff: staff.map(mapStaff),
+      customerMeta: customers.items.map(mapCustomerMeta),
+      settings: mapSettings(salon, settings, hours, blocks),
+    };
+  });
 }

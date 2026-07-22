@@ -100,7 +100,7 @@ export default function DashboardPage() {
   const { bookings, settings, loading, error, refresh, updateBooking } =
     useWorkspace();
   const [range, setRange] = useState<"30" | "90">("30");
-  const [acting, setActing] = useState<number | null>(null);
+  const [acting, setActing] = useState<string | null>(null);
 
   const stats = useMemo(() => computeDashboardStats(bookings), [bookings]);
   const series = useMemo(
@@ -146,10 +146,10 @@ export default function DashboardPage() {
     }
   }, [settings.currency]);
 
-  async function quickDecide(rowIndex: number, status: "Confirmed" | "Declined") {
-    setActing(rowIndex);
+  async function quickDecide(id: string, status: "Confirmed" | "Declined") {
+    setActing(id);
     try {
-      await updateBooking(rowIndex, { status });
+      await updateBooking(id, { status });
     } finally {
       setActing(null);
     }
@@ -271,7 +271,7 @@ export default function DashboardPage() {
           <div className="divide-y divide-ink-50 dark:divide-ink-800">
             {pendingPreview.map((b) => (
               <div
-                key={b.rowIndex}
+                key={b.id}
                 className="flex flex-wrap items-center gap-3 px-5 py-3"
               >
                 <div className="min-w-0 flex-1">
@@ -290,8 +290,8 @@ export default function DashboardPage() {
                     size="sm"
                     variant="success"
                     icon="check"
-                    loading={acting === b.rowIndex}
-                    onClick={() => quickDecide(b.rowIndex, "Confirmed")}
+                    loading={acting === b.id}
+                    onClick={() => quickDecide(b.id, "Confirmed")}
                   >
                     Confirm
                   </Button>
@@ -299,8 +299,8 @@ export default function DashboardPage() {
                     size="sm"
                     variant="secondary"
                     icon="x"
-                    disabled={acting === b.rowIndex}
-                    onClick={() => quickDecide(b.rowIndex, "Declined")}
+                    disabled={acting === b.id}
+                    onClick={() => quickDecide(b.id, "Declined")}
                   >
                     Decline
                   </Button>
@@ -403,7 +403,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-1">
               {todaysSchedule.map((b) => (
                 <div
-                  key={b.rowIndex}
+                  key={b.id}
                   className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-ink-50 dark:hover:bg-ink-800/60 transition-colors"
                 >
                   <span className="text-sm font-bold text-gold-600 w-12 shrink-0">
@@ -447,7 +447,7 @@ export default function DashboardPage() {
                 const confirmed = a.Status.trim().toLowerCase() === "confirmed";
                 return (
                   <div
-                    key={`${a.rowIndex}-${a.UpdatedAt}`}
+                    key={`${a.id}-${a.UpdatedAt}`}
                     className="flex items-center gap-3 py-2.5 border-b border-ink-50 dark:border-ink-800/60 last:border-0"
                   >
                     <span

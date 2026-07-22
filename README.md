@@ -223,4 +223,73 @@ booking-approval/
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   └── page.tsx                  # Main UI (client component)
-│   ├── 
+│   ├── components/
+│   │   └── BookingCard.tsx           # Individual booking card
+│   ├── lib/
+│   │   └── sheets.ts                 # Google Sheets API helpers (Clients lookup + per-client bookings)
+│   ├── middleware.ts                 # Clerk auth middleware (protects all routes)
+│   └── types/
+│       ├── booking.ts                # Booking TypeScript types
+│       └── client.ts                 # ClientProfile TypeScript types
+├── .env.example
+├── next.config.js
+├── package.json
+├── postcss.config.js
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+## API Reference
+
+Both endpoints require the caller to be signed in (enforced by Clerk middleware). The signed-in user's email is looked up in your **Clients** spreadsheet to resolve which bookings spreadsheet to use — every response is scoped to that one client.
+
+### `GET /api/bookings`
+
+Looks up the caller's client profile, then returns all rows in *their* spreadsheet where `Status === "Pending"`.
+
+**Response**
+```json
+{
+  "bookings": [
+    {
+      "rowIndex": 2,
+      "Ime": "Jane Smith",
+      "Gmail": "jane@example.com",
+      "Datum": "2026-05-20",
+      "Ura": "10:00",
+      "Status": "Pending",
+      "Bookingid": "B001"
+    }
+  ],
+  "client": { "clientName": "Acme Salon" }
+}
+```
+
+**Error responses**
+- `401` — not signed in
+- `404` — no matching row in the Clients spreadsheet for this email
+- `500` — Google Sheets API error (e.g. spreadsheet not shared with the service account)
+
+### `PATCH /api/bookings/:rowIndex`
+
+Updates the `Status` column (to `Confirmed` or `Declined`) for the given row **in the caller's own spreadsheet** — resolved the same way as `GET`.
+
+**Body**
+```json
+{ "status": "Confirmed" }
+```
+or
+```json
+{ "status": "Declined" }
+```
+
+**Response**
+```json
+{ "success": true, "status": "Confirmed" }
+```
+
+**Error responses**
+- `400` — invalid row index, malformed body, or invalid status value
+- `401` — not signed in
+- `404` — no client profile found, or the row doesn't exist in their spreadsheet
+- `500` — Google Sheets API error

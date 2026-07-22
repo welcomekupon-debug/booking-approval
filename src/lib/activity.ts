@@ -28,7 +28,7 @@ export function getRecentActivity(
     })
     .slice(0, limit)
     .map((b) => ({
-      rowIndex: b.rowIndex,
+      id: b.id,
       Ime: b.Ime,
       Status: b.Status,
       UpdatedAt: b.UpdatedAt,

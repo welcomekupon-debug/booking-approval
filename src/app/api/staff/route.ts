@@ -1,35 +1,60 @@
-import { NextRequest, NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
-import { saveStaff } from "@/lib/sheets";
-import type { StaffMember } from "@/types/app";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { handleRoute } from "@/lib/api";
+import { requireRole, requireTenant } from "@/lib/auth/context";
+import {
+  createStaff,
+  listStaff,
+  softDeleteStaff,
+  updateStaff,
+} from "@/lib/repositories/catalog";
 
-/** PUT /api/staff — replace the full staff list. */
+const legacyStaffList = z.object({
+  staff: z.array(
+    z.object({
+      id: z.string().uuid().optional(),
+      name: z.string().trim().min(1).max(200),
+      email: z.string().trim().max(320).default(""),
+      phone: z.string().trim().max(40).default(""),
+      role: z.string().trim().max(100).default(""),
+      color: z.string().trim().max(20).default(""),
+      active: z.boolean().default(true),
+    })
+  ),
+});
+
+/** Legacy full-list PUT → diff-based upsert (same pattern as services). */
 export async function PUT(request: NextRequest) {
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
+  return handleRoute(async () => {
+    const ctx = await requireTenant();
+    requireRole(ctx, "manager");
+    const salonId = ctx.salon.id;
 
-    const body = await request.json().catch(() => null);
-    if (!body || !Array.isArray(body.staff)) {
-      return NextResponse.json(
-        { error: "Body must contain a staff array." },
-        { status: 400 }
-      );
+    const { staff: incoming } = legacyStaffList.parse(await request.json());
+
+    const existing = await listStaff(salonId, { includeInactive: true });
+    const incomingIds = new Set(incoming.map((s) => s.id).filter(Boolean));
+
+    for (const row of incoming) {
+      const fields = {
+        name: row.name,
+        email: row.email || null,
+        phone: row.phone || null,
+        roleTitle: row.role || null,
+        color: row.color || null,
+        isActive: row.active,
+      };
+      if (row.id && existing.some((e) => e.id === row.id)) {
+        await updateStaff(salonId, row.id, fields);
+      } else {
+        await createStaff(salonId, fields);
+      }
     }
 
-    const staff = (body.staff as StaffMember[]).map((s) => ({
-      name: String(s.name ?? "").slice(0, 200),
-      email: String(s.email ?? ""),
-      phone: String(s.phone ?? ""),
-      role: String(s.role ?? ""),
-      color: String(s.color ?? ""),
-      active: s.active !== false,
-    }));
+    for (const gone of existing.filter((e) => !incomingIds.has(e.id))) {
+      await softDeleteStaff(salonId, gone.id);
+    }
 
-    await saveStaff(client.spreadsheetId, staff);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[PUT /api/staff]", error);
-    return NextResponse.json({ error: "Failed to save staff." }, { status: 500 });
-  }
+    return { success: true };
+  });
 }

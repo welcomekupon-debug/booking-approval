@@ -16,7 +16,7 @@ export function deriveNotifications(bookings: Booking[]): AppNotification[] {
     const status = normStatus(b);
     const when = bookingDateTime(b.Datum, b.Ura);
     const updated = b.UpdatedAt ? new Date(b.UpdatedAt) : null;
-    const idBase = b.Bookingid || String(b.rowIndex);
+    const idBase = b.Bookingid || String(b.id);
 
     if (status === "pending") {
       if (when && when < now) {

@@ -89,7 +89,7 @@ export function AppointmentDrawer({
     setSaving(true);
     setError(null);
     try {
-      await updateBooking(booking.rowIndex, {
+      await updateBooking(booking.id, {
         datum: date ? fromInputDate(date) : undefined,
         ura: time || undefined,
         service,
@@ -112,7 +112,7 @@ export function AppointmentDrawer({
     setDeciding(next);
     setError(null);
     try {
-      await updateBooking(booking.rowIndex, { status: next });
+      await updateBooking(booking.id, { status: next });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status.");
     } finally {

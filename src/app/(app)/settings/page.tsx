@@ -468,7 +468,7 @@ function SettingsContent() {
                   onClick={() =>
                     setStaffList((l) => [
                       ...l,
-                      { rowIndex: 0, name: "", email: "", phone: "", role: "", color: "", active: true },
+                      { name: "", email: "", phone: "", role: "", color: "", active: true },
                     ])
                   }
                 >
@@ -538,7 +538,7 @@ function SettingsContent() {
                   onClick={() =>
                     setServiceList((l) => [
                       ...l,
-                      { rowIndex: 0, name: "", duration: String(form.defaultDuration), price: "", color: "", active: true },
+                      { name: "", duration: String(form.defaultDuration), price: "", color: "", active: true },
                     ])
                   }
                 >

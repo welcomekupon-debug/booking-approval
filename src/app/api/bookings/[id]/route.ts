@@ -1,102 +1,120 @@
-import { NextRequest, NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
-import { getBookingByRow, updateBooking } from "@/lib/sheets";
+import { NextRequest } from "next/server";
+import { handleRoute } from "@/lib/api";
+import { requireTenant } from "@/lib/auth/context";
+import { ApiError } from "@/lib/errors";
+import { getAppointmentById } from "@/lib/repositories/appointments";
+import { listStaff } from "@/lib/repositories/catalog";
+import {
+  cancelAppointment,
+  decideAppointment,
+  editAppointment,
+  rescheduleAppointment,
+  restoreAppointment,
+} from "@/lib/services/booking";
+import { localDateTimeToUtc, utcToWall } from "@/lib/services/timezone";
+import { decimalToCents, legacyDateToIso } from "@/lib/legacy/mapper";
 import type { BookingUpdatePayload } from "@/types/booking";
 
-const EDITABLE_FIELDS: (keyof BookingUpdatePayload)[] = [
-  "status",
-  "datum",
-  "ura",
-  "notes",
-  "service",
-  "staff",
-  "phone",
-  "duration",
-  "price",
-];
-
 /**
- * PATCH /api/bookings/[id] — update any subset of editable booking fields.
- * Supports: approve/decline (status), reschedule (datum/ura), and editing
- * phone / service / duration / notes / price / staff.
+ * Legacy-shaped PATCH kept for the current UI, translated onto the booking
+ * service. `id` is the appointment UUID.
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const rowIndex = parseInt(id, 10);
+  return handleRoute(async () => {
+    const { id } = await params;
+    const ctx = await requireTenant();
+    const salonId = ctx.salon.id;
+    const actor = { type: "user" as const, userId: ctx.user.id };
 
-  if (isNaN(rowIndex) || rowIndex < 2) {
-    return NextResponse.json(
-      { error: "Invalid booking row index." },
-      { status: 400 }
-    );
-  }
+    const body = (await request.json().catch(() => null)) as
+      | BookingUpdatePayload
+      | null;
+    if (!body) throw ApiError.badRequest("Invalid JSON body.");
 
-  let body: BookingUpdatePayload;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+    const existing = await getAppointmentById(salonId, id);
+    if (!existing) throw ApiError.notFound("Booking not found.");
 
-  // Whitelist fields
-  const fields: BookingUpdatePayload = {};
-  for (const key of EDITABLE_FIELDS) {
-    if (body[key] !== undefined) {
-      (fields as Record<string, unknown>)[key] = body[key];
-    }
-  }
+    // ── Status transitions ───────────────────────────────────────────────
+    if (body.status !== undefined) {
+      if (body.status !== "Confirmed" && body.status !== "Declined") {
+        throw ApiError.badRequest('Status must be "Confirmed" or "Declined".');
+      }
 
-  if (Object.keys(fields).length === 0) {
-    return NextResponse.json(
-      { error: "No editable fields provided." },
-      { status: 400 }
-    );
-  }
-
-  if (
-    fields.status !== undefined &&
-    fields.status !== "Confirmed" &&
-    fields.status !== "Declined"
-  ) {
-    return NextResponse.json(
-      { error: 'Status must be "Confirmed" or "Declined".' },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
-
-    // Make sure the row actually exists in THIS client's spreadsheet
-    const booking = await getBookingByRow(
-      client.spreadsheetId,
-      client.sheetName,
-      rowIndex
-    );
-
-    if (!booking) {
-      return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+      if (existing.status === "pending") {
+        await decideAppointment(
+          salonId,
+          id,
+          body.status === "Confirmed" ? "confirmed" : "declined",
+          actor
+        );
+      } else if (body.status === "Declined") {
+        await cancelAppointment(salonId, id, null, actor);
+      } else {
+        await restoreAppointment(salonId, id, actor);
+      }
     }
 
-    const updatedAt = new Date().toISOString();
-    await updateBooking(
-      client.spreadsheetId,
-      client.sheetName,
-      rowIndex,
-      fields,
-      updatedAt
-    );
+    // ── Reschedule (datum / ura) ─────────────────────────────────────────
+    if (body.datum !== undefined || body.ura !== undefined) {
+      const tz = ctx.salon.timezone;
+      const currentWall = utcToWall(existing.startsAt, tz);
+      const currentIso = `${currentWall.year}-${String(currentWall.month).padStart(2, "0")}-${String(currentWall.day).padStart(2, "0")}`;
+      const currentTime = `${String(currentWall.hour).padStart(2, "0")}:${String(currentWall.minute).padStart(2, "0")}`;
 
-    return NextResponse.json({ success: true, fields, updatedAt });
-  } catch (error) {
-    console.error(`[PATCH /api/bookings/${rowIndex}]`, error);
-    return NextResponse.json(
-      { error: "Failed to update booking. Check server logs for details." },
-      { status: 500 }
-    );
-  }
+      const dateIso = body.datum ? legacyDateToIso(body.datum) : currentIso;
+      const time = body.ura?.trim() || currentTime;
+      if (!dateIso) throw ApiError.badRequest("Invalid date format.");
+      if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(time)) {
+        throw ApiError.badRequest("Invalid time format.");
+      }
+
+      const startsAt = localDateTimeToUtc(dateIso, time, tz);
+      if (
+        startsAt.getTime() !== existing.startsAt.getTime()
+      ) {
+        // Drag-and-drop reschedules are staff actions — allow deliberate
+        // conflicts, the calendar shows them side by side.
+        await rescheduleAppointment(
+          salonId,
+          id,
+          { startsAt, allowConflicts: true },
+          actor
+        );
+      }
+    }
+
+    // ── Field edits ──────────────────────────────────────────────────────
+    const edits: Parameters<typeof editAppointment>[2] = {};
+    if (body.notes !== undefined) edits.internalNote = body.notes;
+    if (body.phone !== undefined) edits.customerPhone = body.phone;
+    if (body.service !== undefined) edits.serviceName = body.service;
+    if (body.duration !== undefined) {
+      const mins = parseInt(body.duration, 10);
+      if (!isNaN(mins) && mins > 0) edits.durationMinutes = mins;
+    }
+    if (body.price !== undefined) {
+      const cents = decimalToCents(body.price);
+      if (cents !== null) edits.priceTotalCents = cents;
+    }
+    if (body.staff !== undefined) {
+      if (!body.staff.trim()) {
+        edits.staffId = null;
+      } else {
+        const staffList = await listStaff(salonId, { includeInactive: true });
+        const match = staffList.find(
+          (s) => s.name.toLowerCase() === body.staff!.trim().toLowerCase()
+        );
+        if (match) edits.staffId = match.id;
+      }
+    }
+
+    if (Object.keys(edits).length > 0) {
+      await editAppointment(salonId, id, edits, actor);
+    }
+
+    return { success: true, updatedAt: new Date().toISOString() };
+  });
 }

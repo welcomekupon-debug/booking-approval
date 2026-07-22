@@ -81,7 +81,7 @@ export function CommandPalette({
         `${b.Ime} ${b.Gmail} ${b.Service} ${b.Staff} ${b.Notes} ${b.Bookingid} ${b.Datum}`.toLowerCase();
       if (haystack.includes(q)) {
         out.push({
-          id: `bk-${b.rowIndex}`,
+          id: `bk-${b.id}`,
           icon: "clipboard",
           title: `${b.Ime} — ${b.Datum} ${b.Ura}`,
           subtitle: `${statusLabel(b.Status)}${b.Service ? ` · ${b.Service}` : ""}`,

@@ -1,35 +1,49 @@
-import { NextRequest, NextResponse } from "next/server";
-import { resolveClient } from "@/lib/resolveClient";
-import { upsertCustomerMeta } from "@/lib/sheets";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { handleRoute } from "@/lib/api";
+import { requireTenant } from "@/lib/auth/context";
+import { ApiError } from "@/lib/errors";
+import { db } from "@/lib/db";
+import { and, eq, isNull } from "drizzle-orm";
+import { customers } from "@/lib/db/schema";
+import { updateCustomer } from "@/lib/repositories/customers";
 
-/** PUT /api/customers — upsert one customer's metadata (tags / VIP / notes). */
+const legacyCustomerMeta = z.object({
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().max(40).default(""),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  vip: z.boolean().default(false),
+  notes: z.string().trim().max(5000).default(""),
+});
+
+/** Legacy upsert of customer metadata, keyed by email. */
 export async function PUT(request: NextRequest) {
-  try {
-    const { client, error } = await resolveClient();
-    if (error) return error;
+  return handleRoute(async () => {
+    const ctx = await requireTenant();
+    const body = legacyCustomerMeta.parse(await request.json());
+    const email = body.email.toLowerCase();
 
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body.email !== "string" || !body.email.trim()) {
-      return NextResponse.json(
-        { error: "Body must contain a customer email." },
-        { status: 400 }
+    const existing = await db.query.customers.findFirst({
+      where: and(
+        eq(customers.salonId, ctx.salon.id),
+        eq(customers.email, email),
+        isNull(customers.deletedAt)
+      ),
+    });
+
+    if (!existing) {
+      throw ApiError.notFound(
+        "Customer not found — customers are created from their bookings."
       );
     }
 
-    await upsertCustomerMeta(client.spreadsheetId, {
-      email: body.email,
-      phone: String(body.phone ?? ""),
-      tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
-      vip: body.vip === true,
-      notes: String(body.notes ?? ""),
+    await updateCustomer(ctx.salon.id, existing.id, {
+      phone: body.phone || null,
+      tags: body.tags,
+      isVip: body.vip,
+      notes: body.notes || null,
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[PUT /api/customers]", error);
-    return NextResponse.json(
-      { error: "Failed to save customer." },
-      { status: 500 }
-    );
-  }
+    return { success: true };
+  });
 }

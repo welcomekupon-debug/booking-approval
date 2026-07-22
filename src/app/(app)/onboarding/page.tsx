@@ -78,12 +78,12 @@ export default function OnboardingPage() {
   const [staffList, setStaffList] = useState<StaffMember[]>(
     existingStaff.length > 0
       ? existingStaff
-      : [{ rowIndex: 0, name: "", email: "", phone: "", role: "", color: "", active: true }]
+      : [{ name: "", email: "", phone: "", role: "", color: "", active: true }]
   );
   const [serviceList, setServiceList] = useState<Service[]>(
     existingServices.length > 0
       ? existingServices
-      : [{ rowIndex: 0, name: "", duration: "30", price: "", color: "", active: true }]
+      : [{ name: "", duration: "30", price: "", color: "", active: true }]
   );
 
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -101,8 +101,10 @@ export default function OnboardingPage() {
     setSaving(true);
     setError(null);
     try {
+      // Settings first — on a brand-new account this creates the salon;
+      // services/staff writes need that salon to exist.
+      await saveSettings({ ...form, onboardingComplete: true });
       await Promise.all([
-        saveSettings({ ...form, onboardingComplete: true }),
         saveServices(serviceList.filter((s) => s.name.trim())),
         saveStaff(staffList.filter((s) => s.name.trim())),
       ]);
@@ -382,7 +384,7 @@ export default function OnboardingPage() {
                 onClick={() =>
                   setStaffList((list) => [
                     ...list,
-                    { rowIndex: 0, name: "", email: "", phone: "", role: "", color: "", active: true },
+                    { name: "", email: "", phone: "", role: "", color: "", active: true },
                   ])
                 }
               >
@@ -454,7 +456,7 @@ export default function OnboardingPage() {
                 onClick={() =>
                   setServiceList((list) => [
                     ...list,
-                    { rowIndex: 0, name: "", duration: String(form.defaultDuration), price: "", color: "", active: true },
+                    { name: "", duration: String(form.defaultDuration), price: "", color: "", active: true },
                   ])
                 }
               >
