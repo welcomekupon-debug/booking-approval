@@ -74,6 +74,8 @@ export interface BusinessSettings {
   holidays: string[]; // ISO dates
   defaultDuration: number; // minutes
   bufferMinutes: number;
+  /** Grid the public booking page offers times on, e.g. every 15 or 30 min */
+  slotGranularityMinutes: number;
   maxAdvanceDays: number;
   autoConfirm: boolean;
   allowCancellation: boolean;
@@ -113,6 +115,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   holidays: [],
   defaultDuration: 30,
   bufferMinutes: 0,
+  slotGranularityMinutes: 15,
   maxAdvanceDays: 60,
   autoConfirm: false,
   allowCancellation: true,

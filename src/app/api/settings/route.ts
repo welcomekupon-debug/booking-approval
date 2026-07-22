@@ -37,6 +37,7 @@ const legacySettings = z
     holidays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
     defaultDuration: z.coerce.number().int().min(5).max(600).optional(),
     bufferMinutes: z.coerce.number().int().min(0).max(240).optional(),
+    slotGranularityMinutes: z.coerce.number().int().min(5).max(120).optional(),
     maxAdvanceDays: z.coerce.number().int().min(1).max(365).optional(),
     autoConfirm: z.boolean().optional(),
     allowCancellation: z.boolean().optional(),
@@ -102,6 +103,9 @@ export async function PUT(request: NextRequest) {
       }),
       ...(body.bufferMinutes !== undefined && {
         defaultBufferAfterMinutes: body.bufferMinutes,
+      }),
+      ...(body.slotGranularityMinutes !== undefined && {
+        slotGranularityMinutes: body.slotGranularityMinutes,
       }),
       ...(body.maxAdvanceDays !== undefined && {
         maxAdvanceDays: body.maxAdvanceDays,

@@ -175,6 +175,7 @@ export function mapSettings(
     holidays,
     defaultDuration: s.defaultDurationMinutes,
     bufferMinutes: s.defaultBufferAfterMinutes,
+    slotGranularityMinutes: s.slotGranularityMinutes,
     maxAdvanceDays: s.maxAdvanceDays,
     autoConfirm: s.autoConfirm,
     allowCancellation: s.allowCancellation,

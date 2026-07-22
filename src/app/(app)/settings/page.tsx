@@ -11,6 +11,7 @@ import {
   Card,
   Field,
   Input,
+  Segmented,
   Select,
   Toast,
   Toggle,
@@ -102,10 +103,24 @@ function SettingsContent() {
   const [holidayInput, setHolidayInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [granularityMode, setGranularityMode] = useState<
+    "15" | "30" | "60" | "custom"
+  >(
+    [15, 30, 60].includes(settings.slotGranularityMinutes)
+      ? (String(settings.slotGranularityMinutes) as "15" | "30" | "60")
+      : "custom"
+  );
 
   useAutoDismiss(toast, () => setToast(null));
 
   useEffect(() => setForm(settings), [settings]);
+  useEffect(() => {
+    setGranularityMode(
+      [15, 30, 60].includes(settings.slotGranularityMinutes)
+        ? (String(settings.slotGranularityMinutes) as "15" | "30" | "60")
+        : "custom"
+    );
+  }, [settings.slotGranularityMinutes]);
   useEffect(() => setServiceList(services), [services]);
   useEffect(() => setStaffList(staff), [staff]);
 
@@ -592,6 +607,44 @@ function SettingsContent() {
                   label="Track revenue"
                   description="Show revenue stats based on appointment prices."
                 />
+                <Field
+                  label="Booking time slots"
+                  hint="How tightly available times are spaced on your booking page and calendar — independent of how long a service actually takes."
+                >
+                  <div className="flex flex-col gap-3">
+                    <Segmented
+                      options={[
+                        { value: "15", label: "15 min" },
+                        { value: "30", label: "30 min" },
+                        { value: "60", label: "1 hour" },
+                        { value: "custom", label: "Custom" },
+                      ]}
+                      value={granularityMode}
+                      onChange={(v) => {
+                        setGranularityMode(v);
+                        if (v !== "custom") {
+                          patch({ slotGranularityMinutes: Number(v) });
+                        }
+                      }}
+                    />
+                    {granularityMode === "custom" && (
+                      <Input
+                        type="number"
+                        min={5}
+                        max={120}
+                        step={5}
+                        value={form.slotGranularityMinutes}
+                        placeholder="Minutes"
+                        onChange={(e) =>
+                          patch({
+                            slotGranularityMinutes: Number(e.target.value) || 15,
+                          })
+                        }
+                        className="max-w-[140px]"
+                      />
+                    )}
+                  </div>
+                </Field>
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <Field label="Default duration (min)">
                     <Input
@@ -610,6 +663,23 @@ function SettingsContent() {
                       value={form.bufferMinutes}
                       onChange={(e) => patch({ bufferMinutes: Number(e.target.value) || 0 })}
                     />
+                  </Field>
+                  <Field
+                    label="Booking time slots"
+                    hint="How often times are offered on your booking page."
+                  >
+                    <Select
+                      value={String(form.slotGranularityMinutes)}
+                      onChange={(e) =>
+                        patch({ slotGranularityMinutes: Number(e.target.value) })
+                      }
+                    >
+                      {[5, 10, 15, 20, 30, 60].map((m) => (
+                        <option key={m} value={m}>
+                          Every {m} min
+                        </option>
+                      ))}
+                    </Select>
                   </Field>
                   <Field label="Currency">
                     <Select
