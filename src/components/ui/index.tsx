@@ -209,14 +209,16 @@ export function Toggle({
   onChange,
   label,
   description,
+  disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: string;
   description?: string;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1">
+    <div className={cx("flex items-start justify-between gap-4 py-1", disabled && "opacity-50")}>
       {(label || description) && (
         <div className="min-w-0">
           {label && (
@@ -233,9 +235,11 @@ export function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
+        disabled={disabled}
+        onClick={() => !disabled && onChange(!checked)}
         className={cx(
           "relative shrink-0 w-10 h-6 rounded-full transition-colors duration-300",
+          disabled ? "cursor-not-allowed" : "cursor-pointer",
           checked ? "bg-gold-500" : "bg-ink-200 dark:bg-ink-700"
         )}
       >

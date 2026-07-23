@@ -749,24 +749,6 @@ function SettingsContent() {
             >
               <div className="flex flex-col gap-4 max-w-md">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600">
-                  Email — to you
-                </p>
-                <Toggle
-                  checked={form.notifyEmailNewRequest}
-                  onChange={(v) => patch({ notifyEmailNewRequest: v })}
-                  label="New booking requests"
-                />
-                <Toggle
-                  checked={form.notifyEmailCancellation}
-                  onChange={(v) => patch({ notifyEmailCancellation: v })}
-                  label="Cancellations"
-                />
-                <Toggle
-                  checked={form.notifyEmailDailySummary}
-                  onChange={(v) => patch({ notifyEmailDailySummary: v })}
-                  label="Daily summary"
-                />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600 mt-2">
                   To customers
                 </p>
                 <Toggle
@@ -781,15 +763,18 @@ function SettingsContent() {
                   description={`Sent ${form.reminderHoursBefore}h before the appointment.`}
                 />
                 <Toggle
-                  checked={form.notifySmsConfirmation}
-                  onChange={(v) => patch({ notifySmsConfirmation: v })}
+                  checked={false}
+                  onChange={() => {}}
+                  disabled
                   label="SMS confirmations"
+                  description="Coming soon — not available yet."
                 />
                 <Toggle
-                  checked={form.notifySmsReminder}
-                  onChange={(v) => patch({ notifySmsReminder: v })}
+                  checked={false}
+                  onChange={() => {}}
+                  disabled
                   label="SMS reminders"
-                  description={`Sent ${form.reminderHoursBefore}h before the appointment.`}
+                  description="Coming soon — not available yet."
                 />
                 <Field label="Reminder timing (hours before)">
                   <Input

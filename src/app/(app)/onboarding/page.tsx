@@ -554,28 +554,19 @@ export default function OnboardingPage() {
                 Email
               </p>
               <Toggle
-                checked={form.notifyEmailNewRequest}
-                onChange={(v) => patch({ notifyEmailNewRequest: v })}
-                label="New booking requests"
-              />
-              <Toggle
                 checked={form.notifyEmailConfirmation}
                 onChange={(v) => patch({ notifyEmailConfirmation: v })}
                 label="Confirmations"
-              />
-              <Toggle
-                checked={form.notifyEmailDailySummary}
-                onChange={(v) => patch({ notifyEmailDailySummary: v })}
-                label="Daily summary"
               />
               <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600 mt-2">
                 SMS
               </p>
               <Toggle
-                checked={form.notifySmsReminder}
-                onChange={(v) => patch({ notifySmsReminder: v })}
+                checked={false}
+                onChange={() => {}}
+                disabled
                 label="Customer reminders"
-                description={`Sent ${form.reminderHoursBefore}h before the appointment.`}
+                description="Coming soon — not available yet."
               />
               <Field label="Reminder timing (hours before)">
                 <Input
