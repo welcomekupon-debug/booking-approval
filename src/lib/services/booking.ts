@@ -165,11 +165,14 @@ export async function createBooking(
   // Fire the confirmation email after the transaction has committed — never
   // let an n8n/webhook hiccup roll back (or even delay failing) the booking.
   if (appointment.status === "confirmed") {
+    const staff = appointment.staffId
+      ? await getStaffById(input.salonId, appointment.staffId)
+      : null;
     const ctx = await buildAppointmentEmailContext({
       salonId: input.salonId,
       customer: { name: customer.name, email: customer.email, phone: customer.phone },
       services,
-      staffName: null, // not loaded at creation time; reminder/decision emails carry it
+      staffName: staff?.name ?? null,
       appointment,
     });
     if (ctx) await emailService.sendBookingConfirmation(ctx);

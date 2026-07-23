@@ -42,12 +42,19 @@ export interface EmailCustomerInfo {
 
 export interface EmailAppointmentInfo {
   id: string;
-  /** ISO instants — n8n/Resend template renders these in the salon's timezone */
+  /** ISO instants, for templates that want to format them themselves */
   startsAt: string;
   endsAt: string;
   status: string;
   services: string[];
-  staffName: string | null;
+  /** services.join(", ") — convenience for templates expecting one field */
+  serviceName: string;
+  /** Pre-formatted in the salon's own timezone, e.g. "Friday, 24 July 2026" */
+  date: string;
+  /** Pre-formatted in the salon's own timezone, e.g. "14:30" */
+  time: string;
+  /** "" (never null) — templates interpolate this directly with no fallback */
+  staffName: string;
   priceTotalCents: number;
   notes: string | null;
 }
@@ -73,7 +80,14 @@ const EVENT_ENV_VAR: Record<EmailEvent, string> = {
 
 function resolveWebhookUrl(event: EmailEvent): string | null {
   const override = process.env[EVENT_ENV_VAR[event]];
-  return override || process.env.N8N_EMAIL_WEBHOOK_URL || null;
+  // N8N_SALON_WEBHOOK_URL is an accepted alias for N8N_EMAIL_WEBHOOK_URL —
+  // both names have been used in setup instructions, so honor whichever is set.
+  return (
+    override ||
+    process.env.N8N_EMAIL_WEBHOOK_URL ||
+    process.env.N8N_SALON_WEBHOOK_URL ||
+    null
+  );
 }
 
 async function triggerWebhook(payload: EmailPayload): Promise<void> {
@@ -111,6 +125,40 @@ async function triggerWebhook(payload: EmailPayload): Promise<void> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+const dateFmtCache = new Map<string, Intl.DateTimeFormat>();
+const timeFmtCache = new Map<string, Intl.DateTimeFormat>();
+
+/** e.g. "Friday, 24 July 2026" in the given salon's own timezone. */
+function formatEmailDate(instant: Date, timeZone: string): string {
+  let fmt = dateFmtCache.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone,
+    });
+    dateFmtCache.set(timeZone, fmt);
+  }
+  return fmt.format(instant);
+}
+
+/** e.g. "14:30" in the given salon's own timezone. */
+function formatEmailTime(instant: Date, timeZone: string): string {
+  let fmt = timeFmtCache.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone,
+    });
+    timeFmtCache.set(timeZone, fmt);
+  }
+  return fmt.format(instant);
 }
 
 /** Shape a Salon row for the email payload — same projection everywhere. */
@@ -151,6 +199,8 @@ export async function buildAppointmentEmailContext(params: {
   const salon = await getSalonById(params.salonId);
   if (!salon) return null;
 
+  const services = params.services.map((s) => ("name" in s ? s.name : s.serviceName));
+
   return {
     salon: toEmailSalonInfo(salon),
     customer: {
@@ -163,8 +213,11 @@ export async function buildAppointmentEmailContext(params: {
       startsAt: params.appointment.startsAt.toISOString(),
       endsAt: params.appointment.endsAt.toISOString(),
       status: params.appointment.status,
-      services: params.services.map((s) => ("name" in s ? s.name : s.serviceName)),
-      staffName: params.staffName,
+      services,
+      serviceName: services.join(", ") || "Appointment",
+      date: formatEmailDate(params.appointment.startsAt, salon.timezone),
+      time: formatEmailTime(params.appointment.startsAt, salon.timezone),
+      staffName: params.staffName ?? "",
       priceTotalCents: params.appointment.priceTotalCents,
       notes: params.appointment.customerNote,
     },
@@ -194,7 +247,12 @@ export const emailService = {
     });
   },
 
-  /** Sent when an appointment is moved to a new time. */
+  /**
+   * Sent when an appointment is moved to a new time. `ctx.appointment.date`
+   * / `.time` already reflect the NEW time (matching the `newDate || date`
+   * fallback pattern most reschedule templates use) — the previous time is
+   * included in `meta` for templates that want to show a "moved from" line.
+   */
   sendRescheduleEmail(
     ctx: AppointmentEmailContext,
     previousStartsAt: Date
@@ -202,7 +260,11 @@ export const emailService = {
     return triggerWebhook({
       event: "reschedule",
       ...ctx,
-      meta: { previousStartsAt: previousStartsAt.toISOString() },
+      meta: {
+        previousStartsAt: previousStartsAt.toISOString(),
+        previousDate: formatEmailDate(previousStartsAt, ctx.salon.timezone),
+        previousTime: formatEmailTime(previousStartsAt, ctx.salon.timezone),
+      },
     });
   },
 
