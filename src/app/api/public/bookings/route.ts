@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { handleRoute } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { verifyApiKey } from "@/lib/repositories/apiKeys";
 import { listServices } from "@/lib/repositories/catalog";
 import { db } from "@/lib/db";
@@ -23,12 +24,20 @@ import { publicBookingSchema } from "@/lib/validators/booking";
  */
 export async function POST(request: NextRequest) {
   return handleRoute(async () => {
+    // Coarse per-IP limit first — cheap guard against garbage/auth-guessing
+    // traffic before we even touch the key lookup.
+    await checkRateLimit(`public-bookings-ip:${getClientIp(request)}`, 30, 60);
+
     const auth = request.headers.get("authorization") ?? "";
     const rawKey = auth.replace(/^Bearer\s+/i, "").trim();
     if (!rawKey) throw ApiError.unauthorized("Missing API key.");
 
     const key = await verifyApiKey(rawKey);
     if (!key) throw ApiError.unauthorized("Invalid or revoked API key.");
+
+    // Per-key limit — generous, this is trusted machine-to-machine traffic,
+    // just capped so a misconfigured workflow loop can't hammer the DB.
+    await checkRateLimit(`public-bookings-key:${key.apiKeyId}`, 60, 60);
 
     const body = publicBookingSchema.parse(await request.json());
 

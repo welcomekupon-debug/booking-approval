@@ -2,13 +2,14 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { handleRoute } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { getSalonBySlug } from "@/lib/repositories/salons";
 import { createBooking } from "@/lib/services/booking";
 import { zUuid } from "@/lib/validators/booking";
 
-const publicBookSchema = z.object({
+const publicBookSchema = z.strictObject({
   salon: z.string().trim().min(1).max(64), // slug
-  customer: z.object({
+  customer: z.strictObject({
     name: z.string().trim().min(1).max(200),
     email: z.string().trim().email().max(320),
     phone: z.string().trim().max(40).optional().nullable(),
@@ -23,14 +24,14 @@ const publicBookSchema = z.object({
  * POST /api/public/book — the customer-facing booking page endpoint.
  *
  * Unauthenticated but tightly constrained: slug-scoped, availability-checked
- * (conflicts are rejected, unlike the trusted staff/n8n paths), and only ever
- * creates `pending` requests unless the salon enabled auto-confirm.
- *
- * NOTE for launch hardening: add per-IP rate limiting at the edge
- * (Vercel WAF or middleware) — this endpoint is intentionally public.
+ * (conflicts are rejected, unlike the trusted staff/n8n paths), rate-limited
+ * per IP, and only ever creates `pending` requests unless the salon enabled
+ * auto-confirm.
  */
 export async function POST(request: NextRequest) {
   return handleRoute(async () => {
+    await checkRateLimit(`public-book:${getClientIp(request)}`, 5, 60);
+
     const body = publicBookSchema.parse(await request.json());
 
     const salon = await getSalonBySlug(body.salon);

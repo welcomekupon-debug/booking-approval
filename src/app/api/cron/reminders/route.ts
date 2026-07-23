@@ -1,9 +1,19 @@
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { handleRoute } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { sendDueReminders } from "@/lib/services/reminders";
 
 export const dynamic = "force-dynamic";
+
+/** Constant-time string compare — avoids leaking the secret via response timing. */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 /**
  * GET /api/cron/reminders — polled by Vercel Cron (see vercel.json) to send
@@ -17,10 +27,12 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   return handleRoute(async () => {
+    await checkRateLimit(`cron-reminders:${getClientIp(request)}`, 10, 60);
+
     const secret = process.env.CRON_SECRET;
     if (secret) {
-      const auth = request.headers.get("authorization");
-      if (auth !== `Bearer ${secret}`) {
+      const auth = request.headers.get("authorization") ?? "";
+      if (!safeEqual(auth, `Bearer ${secret}`)) {
         throw ApiError.unauthorized("Invalid or missing cron secret.");
       }
     } else {

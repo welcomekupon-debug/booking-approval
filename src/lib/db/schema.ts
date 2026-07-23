@@ -551,6 +551,27 @@ export const apiKeys = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Rate limiting (fixed-window counters for unauthenticated endpoints)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * One row per (bucket key, current window). `key` encodes route + identity,
+ * e.g. "public-book:203.0.113.4" or "public-bookings-key:<apiKeyId>".
+ * Rows are cheap and self-cleaning in practice (old windows just stop being
+ * matched) — a periodic delete of stale rows is a nice-to-have, not required.
+ */
+export const rateLimitHits = pgTable(
+  "rate_limit_hits",
+  {
+    key: text("key").primaryKey(),
+    windowStart: timestamp("window_start", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    count: integer("count").notNull().default(1),
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Calendar sync (DB is always the source of truth; sync flows outward)
 // ─────────────────────────────────────────────────────────────────────────────
 

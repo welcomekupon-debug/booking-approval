@@ -15,14 +15,14 @@ import { HOLIDAY_REASON } from "@/lib/legacy/mapper";
 import { localDateTimeToUtc } from "@/lib/services/timezone";
 import { DAY_KEYS } from "@/types/app";
 
-const dayHours = z.object({
+const dayHours = z.strictObject({
   open: z.boolean(),
   from: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   to: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
 });
 
 const legacySettings = z
-  .object({
+  .strictObject({
     businessName: z.string().trim().max(200).optional(),
     businessType: z.string().trim().max(100).optional(),
     address: z.string().trim().max(500).optional(),
@@ -51,8 +51,7 @@ const legacySettings = z
     notifySmsConfirmation: z.boolean().optional(),
     reminderHoursBefore: z.coerce.number().int().min(1).max(168).optional(),
     onboardingComplete: z.boolean().optional(),
-  })
-  .passthrough();
+  });
 
 /**
  * Legacy settings PUT, translated onto salons + settings + business_hours +

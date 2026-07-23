@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const ctx = await requireTenant();
     requireRole(ctx, "owner");
     const { name } = z
-      .object({ name: z.string().trim().min(1).max(100) })
+      .strictObject({ name: z.string().trim().min(1).max(100) })
       .parse(await request.json());
 
     const { record, rawKey } = await createApiKey(ctx.salon.id, name);
@@ -47,7 +47,7 @@ export async function DELETE(request: NextRequest) {
     const ctx = await requireTenant();
     requireRole(ctx, "owner");
     const { id } = z
-      .object({ id: z.string().uuid() })
+      .strictObject({ id: z.string().uuid() })
       .parse(await request.json());
     await revokeApiKey(ctx.salon.id, id);
     return { success: true };

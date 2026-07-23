@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { handleRoute } from "@/lib/api";
 import { requireTenant } from "@/lib/auth/context";
 import { ApiError } from "@/lib/errors";
@@ -13,7 +14,18 @@ import {
 } from "@/lib/services/booking";
 import { localDateTimeToUtc, utcToWall } from "@/lib/services/timezone";
 import { decimalToCents, legacyDateToIso } from "@/lib/legacy/mapper";
-import type { BookingUpdatePayload } from "@/types/booking";
+
+const bookingUpdateSchema = z.strictObject({
+  status: z.enum(["Confirmed", "Declined"]).optional(),
+  datum: z.string().trim().max(40).optional(),
+  ura: z.string().trim().max(20).optional(),
+  notes: z.string().trim().max(2000).optional(),
+  service: z.string().trim().max(200).optional(),
+  staff: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(40).optional(),
+  duration: z.string().trim().max(20).optional(),
+  price: z.string().trim().max(20).optional(),
+});
 
 /**
  * Legacy-shaped PATCH kept for the current UI, translated onto the booking
@@ -25,14 +37,16 @@ export async function PATCH(
 ) {
   return handleRoute(async () => {
     const { id } = await params;
+    if (!z.string().uuid().safeParse(id).success) {
+      throw ApiError.badRequest("Invalid booking id.");
+    }
     const ctx = await requireTenant();
     const salonId = ctx.salon.id;
     const actor = { type: "user" as const, userId: ctx.user.id };
 
-    const body = (await request.json().catch(() => null)) as
-      | BookingUpdatePayload
-      | null;
-    if (!body) throw ApiError.badRequest("Invalid JSON body.");
+    const json = await request.json().catch(() => null);
+    if (!json) throw ApiError.badRequest("Invalid JSON body.");
+    const body = bookingUpdateSchema.parse(json);
 
     const existing = await getAppointmentById(salonId, id);
     if (!existing) throw ApiError.notFound("Booking not found.");

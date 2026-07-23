@@ -4,7 +4,7 @@ import { handleRoute } from "@/lib/api";
 import { requireTenant } from "@/lib/auth/context";
 import { markAllRead, markRead } from "@/lib/repositories/notifications";
 
-const readSchema = z.object({
+const readSchema = z.strictObject({
   action: z.enum(["readAll", "read"]),
   ids: z.array(z.string().uuid()).max(100).optional(),
 });

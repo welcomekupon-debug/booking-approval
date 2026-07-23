@@ -23,4 +23,7 @@ export class ApiError extends Error {
   static conflict(msg = "Conflict.") {
     return new ApiError(409, msg);
   }
+  static tooManyRequests(msg = "Too many requests. Please try again shortly.") {
+    return new ApiError(429, msg);
+  }
 }

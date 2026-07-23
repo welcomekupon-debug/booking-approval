@@ -10,17 +10,19 @@ import {
 } from "@/lib/repositories/catalog";
 import { decimalToCents } from "@/lib/legacy/mapper";
 
-const legacyServiceList = z.object({
-  services: z.array(
-    z.object({
-      id: z.string().uuid().optional(),
-      name: z.string().trim().min(1).max(200),
-      duration: z.string().trim(),
-      price: z.string().trim(),
-      color: z.string().trim().max(20).default(""),
-      active: z.boolean().default(true),
-    })
-  ),
+const legacyServiceList = z.strictObject({
+  services: z
+    .array(
+      z.strictObject({
+        id: z.string().uuid().optional(),
+        name: z.string().trim().min(1).max(200),
+        duration: z.string().trim().max(20),
+        price: z.string().trim().max(20),
+        color: z.string().trim().max(20).default(""),
+        active: z.boolean().default(true),
+      })
+    )
+    .max(500),
 });
 
 /**

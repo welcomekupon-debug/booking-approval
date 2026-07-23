@@ -8,7 +8,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { customers } from "@/lib/db/schema";
 import { updateCustomer } from "@/lib/repositories/customers";
 
-const legacyCustomerMeta = z.object({
+const legacyCustomerMeta = z.strictObject({
   email: z.string().trim().email().max(320),
   phone: z.string().trim().max(40).default(""),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),

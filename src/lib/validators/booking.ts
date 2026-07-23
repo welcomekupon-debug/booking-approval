@@ -11,8 +11,8 @@ export const zTime = z
 export const zInstant = z.coerce.date();
 
 /** POST /api/appointments — staff-created booking */
-export const createAppointmentSchema = z.object({
-  customer: z.object({
+export const createAppointmentSchema = z.strictObject({
+  customer: z.strictObject({
     name: z.string().trim().min(1).max(200),
     email: z.string().trim().email().max(320).optional().nullable(),
     phone: z.string().trim().max(40).optional().nullable(),

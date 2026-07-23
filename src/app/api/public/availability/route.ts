@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { handleRoute } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { getSalonBySlug } from "@/lib/repositories/salons";
 import { getAvailableSlotsForRange } from "@/lib/services/availability";
 import { availabilityQuerySchema } from "@/lib/validators/booking";
@@ -11,11 +12,12 @@ import { availabilityQuerySchema } from "@/lib/validators/booking";
  * GET /api/public/availability?salon={slug}&date=YYYY-MM-DD&days=7&serviceIds=…
  *
  * Unauthenticated (it powers the public booking page), but only exposes
- * free/busy slots — never appointment details. Rate limiting should be added
- * at the edge (Vercel WAF / middleware) before heavy public launch.
+ * free/busy slots — never appointment details. Rate-limited per IP.
  */
 export async function GET(request: NextRequest) {
   return handleRoute(async () => {
+    await checkRateLimit(`public-availability:${getClientIp(request)}`, 60, 60);
+
     const params = Object.fromEntries(request.nextUrl.searchParams.entries());
     const query = availabilityQuerySchema.parse({
       ...params,

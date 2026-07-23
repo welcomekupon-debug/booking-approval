@@ -9,18 +9,20 @@ import {
   updateStaff,
 } from "@/lib/repositories/catalog";
 
-const legacyStaffList = z.object({
-  staff: z.array(
-    z.object({
-      id: z.string().uuid().optional(),
-      name: z.string().trim().min(1).max(200),
-      email: z.string().trim().max(320).default(""),
-      phone: z.string().trim().max(40).default(""),
-      role: z.string().trim().max(100).default(""),
-      color: z.string().trim().max(20).default(""),
-      active: z.boolean().default(true),
-    })
-  ),
+const legacyStaffList = z.strictObject({
+  staff: z
+    .array(
+      z.strictObject({
+        id: z.string().uuid().optional(),
+        name: z.string().trim().min(1).max(200),
+        email: z.string().trim().max(320).default(""),
+        phone: z.string().trim().max(40).default(""),
+        role: z.string().trim().max(100).default(""),
+        color: z.string().trim().max(20).default(""),
+        active: z.boolean().default(true),
+      })
+    )
+    .max(200),
 });
 
 /** Legacy full-list PUT → diff-based upsert (same pattern as services). */
