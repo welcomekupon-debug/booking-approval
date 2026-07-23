@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "notify_email_reminder" boolean DEFAULT true NOT NULL;

@@ -84,6 +84,8 @@ export interface BusinessSettings {
   notifyEmailConfirmation: boolean;
   notifyEmailCancellation: boolean;
   notifyEmailDailySummary: boolean;
+  /** Reminder email to the customer, sent by the cron job ahead of their appointment */
+  notifyEmailReminder: boolean;
   notifySmsReminder: boolean;
   notifySmsConfirmation: boolean;
   reminderHoursBefore: number;
@@ -124,6 +126,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   notifyEmailConfirmation: true,
   notifyEmailCancellation: true,
   notifyEmailDailySummary: false,
+  notifyEmailReminder: true,
   notifySmsReminder: false,
   notifySmsConfirmation: false,
   reminderHoursBefore: 24,

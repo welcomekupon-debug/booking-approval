@@ -10,9 +10,11 @@ import {
   Button,
   Card,
   Drawer,
+  EmailLink,
   EmptyState,
   Field,
   Input,
+  PhoneLink,
   Segmented,
   Skeleton,
   Textarea,
@@ -92,7 +94,10 @@ function CustomerDrawer({
                   <Icon name="star" className="w-4 h-4 text-gold-500 shrink-0" />
                 )}
               </h2>
-              <p className="text-xs text-ink-400 truncate">{customer.email}</p>
+              <EmailLink
+                email={customer.email}
+                className="block text-xs text-ink-400 truncate hover:text-gold-600 hover:underline"
+              />
             </div>
           </div>
           <button
@@ -134,14 +139,14 @@ function CustomerDrawer({
 
         {/* Contact */}
         <div className="grid grid-cols-2 gap-2 mb-6">
-          <a
-            href={`mailto:${customer.email}`}
+          <EmailLink
+            email={customer.email}
             className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-semibold text-ink-700 dark:text-ink-200 hover:border-gold-300 hover:bg-gold-50/50 dark:hover:bg-gold-900/10 transition-all"
           >
             <Icon name="mail" className="w-4 h-4 text-gold-600" /> Email
-          </a>
-          <a
-            href={customer.phone ? `tel:${customer.phone}` : undefined}
+          </EmailLink>
+          <PhoneLink
+            phone={customer.phone}
             className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-ink-200 dark:border-ink-700 text-sm font-semibold text-ink-700 dark:text-ink-200 transition-all ${
               customer.phone
                 ? "hover:border-gold-300 hover:bg-gold-50/50 dark:hover:bg-gold-900/10"
@@ -150,7 +155,7 @@ function CustomerDrawer({
           >
             <Icon name="phone" className="w-4 h-4 text-gold-600" />
             {customer.phone || "No phone"}
-          </a>
+          </PhoneLink>
         </div>
 
         {/* Editable meta */}
@@ -390,9 +395,17 @@ function CustomersContent() {
                       <Icon name="star" className="w-3.5 h-3.5 text-gold-500 shrink-0" />
                     )}
                   </h3>
-                  <p className="text-xs text-ink-400 truncate">{c.email}</p>
+                  <EmailLink
+                    email={c.email}
+                    stopPropagation
+                    className="block text-xs text-ink-400 truncate hover:text-gold-600 hover:underline"
+                  />
                   {c.phone && (
-                    <p className="text-xs text-ink-400 truncate">{c.phone}</p>
+                    <PhoneLink
+                      phone={c.phone}
+                      stopPropagation
+                      className="block text-xs text-ink-400 truncate hover:text-gold-600 hover:underline"
+                    />
                   )}
                 </div>
               </div>

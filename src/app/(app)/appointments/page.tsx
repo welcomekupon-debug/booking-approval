@@ -11,8 +11,10 @@ import {
   Badge,
   Button,
   Card,
+  EmailLink,
   EmptyState,
   Input,
+  PhoneLink,
   Segmented,
   Skeleton,
   Toast,
@@ -80,7 +82,11 @@ function AppointmentCard({
               {statusLabel(booking.Status)}
             </Badge>
           </div>
-          <p className="text-xs text-ink-400 truncate mt-0.5">{booking.Gmail}</p>
+          <EmailLink
+            email={booking.Gmail}
+            stopPropagation
+            className="block text-xs text-ink-400 truncate mt-0.5 hover:text-gold-600 hover:underline"
+          />
         </div>
       </div>
 
@@ -106,10 +112,14 @@ function AppointmentCard({
           </span>
         )}
         {booking.Phone && (
-          <span className="flex items-center gap-2 text-ink-600 dark:text-ink-300 col-span-2">
+          <PhoneLink
+            phone={booking.Phone}
+            stopPropagation
+            className="flex items-center gap-2 text-ink-600 dark:text-ink-300 col-span-2 hover:text-gold-600"
+          >
             <Icon name="phone" className="w-3.5 h-3.5 text-gold-600 shrink-0" />
             {booking.Phone}
-          </span>
+          </PhoneLink>
         )}
         {booking.Notes && (
           <span className="flex items-start gap-2 text-ink-500 dark:text-ink-400 col-span-2 text-xs">
@@ -151,14 +161,14 @@ function AppointmentCard({
             Details
           </Button>
         )}
-        <a
-          href={`mailto:${booking.Gmail}`}
-          onClick={(e) => e.stopPropagation()}
+        <EmailLink
+          email={booking.Gmail}
+          stopPropagation
           className="p-2 rounded-xl border border-ink-200 dark:border-ink-700 text-ink-500 hover:text-gold-600 hover:border-gold-300 transition-colors"
           aria-label={`Email ${booking.Ime}`}
         >
           <Icon name="mail" className="w-4 h-4" />
-        </a>
+        </EmailLink>
       </div>
     </Card>
   );

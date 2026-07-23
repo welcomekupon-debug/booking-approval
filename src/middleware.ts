@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/public(.*)",
   // Public booking pages
   "/book(.*)",
+  // Scheduled jobs — no Clerk session (called by Vercel Cron), protected by CRON_SECRET instead
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

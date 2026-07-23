@@ -716,23 +716,6 @@ function SettingsContent() {
                       onChange={(e) => patch({ bufferMinutes: Number(e.target.value) || 0 })}
                     />
                   </Field>
-                  <Field
-                    label="Booking time slots"
-                    hint="How often times are offered on your booking page."
-                  >
-                    <Select
-                      value={String(form.slotGranularityMinutes)}
-                      onChange={(e) =>
-                        patch({ slotGranularityMinutes: Number(e.target.value) })
-                      }
-                    >
-                      {[5, 10, 15, 20, 30, 60].map((m) => (
-                        <option key={m} value={m}>
-                          Every {m} min
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
                   <Field label="Currency">
                     <Select
                       value={form.currency}
@@ -790,6 +773,12 @@ function SettingsContent() {
                   checked={form.notifyEmailConfirmation}
                   onChange={(v) => patch({ notifyEmailConfirmation: v })}
                   label="Email confirmations"
+                />
+                <Toggle
+                  checked={form.notifyEmailReminder}
+                  onChange={(v) => patch({ notifyEmailReminder: v })}
+                  label="Email reminders"
+                  description={`Sent ${form.reminderHoursBefore}h before the appointment.`}
                 />
                 <Toggle
                   checked={form.notifySmsConfirmation}

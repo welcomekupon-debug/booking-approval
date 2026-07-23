@@ -46,6 +46,7 @@ const legacySettings = z
     notifyEmailConfirmation: z.boolean().optional(),
     notifyEmailCancellation: z.boolean().optional(),
     notifyEmailDailySummary: z.boolean().optional(),
+    notifyEmailReminder: z.boolean().optional(),
     notifySmsReminder: z.boolean().optional(),
     notifySmsConfirmation: z.boolean().optional(),
     reminderHoursBefore: z.coerce.number().int().min(1).max(168).optional(),
@@ -128,6 +129,9 @@ export async function PUT(request: NextRequest) {
       }),
       ...(body.notifyEmailDailySummary !== undefined && {
         notifyEmailDailySummary: body.notifyEmailDailySummary,
+      }),
+      ...(body.notifyEmailReminder !== undefined && {
+        notifyEmailReminder: body.notifyEmailReminder,
       }),
       ...(body.notifySmsReminder !== undefined && {
         notifySmsReminder: body.notifySmsReminder,

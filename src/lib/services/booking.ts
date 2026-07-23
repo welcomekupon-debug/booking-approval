@@ -15,11 +15,12 @@ import {
   insertAppointment,
   updateAppointment,
 } from "@/lib/repositories/appointments";
-import { getServicesByIds } from "@/lib/repositories/catalog";
+import { getServicesByIds, getStaffById } from "@/lib/repositories/catalog";
 import { findOrCreateCustomer } from "@/lib/repositories/customers";
 import { getSettings } from "@/lib/repositories/settings";
 import { notifySalonMembers } from "@/lib/repositories/notifications";
 import { recordAudit } from "@/lib/repositories/audit";
+import { emailService, buildAppointmentEmailContext } from "@/lib/services/email";
 
 /**
  * Booking service — every appointment mutation flows through here so that
@@ -92,7 +93,7 @@ export async function createBooking(
   const status: AppointmentStatus =
     input.source === "staff" || settings.autoConfirm ? "confirmed" : "pending";
 
-  return db.transaction(async (tx) => {
+  const { appointment, customer } = await db.transaction(async (tx) => {
     if (!input.allowConflicts) {
       const conflicts = await findConflicts(
         tx,
@@ -158,8 +159,23 @@ export async function createBooking(
       });
     }
 
-    return appointment;
+    return { appointment, customer };
   });
+
+  // Fire the confirmation email after the transaction has committed — never
+  // let an n8n/webhook hiccup roll back (or even delay failing) the booking.
+  if (appointment.status === "confirmed") {
+    const ctx = await buildAppointmentEmailContext({
+      salonId: input.salonId,
+      customer: { name: customer.name, email: customer.email, phone: customer.phone },
+      services,
+      staffName: null, // not loaded at creation time; reminder/decision emails carry it
+      appointment,
+    });
+    if (ctx) await emailService.sendBookingConfirmation(ctx);
+  }
+
+  return appointment;
 }
 
 /** Confirm or decline a pending request. */
@@ -175,7 +191,7 @@ export async function decideAppointment(
     throw ApiError.conflict(`Only pending requests can be ${decision}.`);
   }
 
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const updated = await updateAppointment(tx, salonId, appointmentId, {
       status: decision,
     });
@@ -192,6 +208,19 @@ export async function decideAppointment(
 
     return updated;
   });
+
+  if (decision === "confirmed") {
+    const ctx = await buildAppointmentEmailContext({
+      salonId,
+      customer: existing.customer,
+      services: existing.services,
+      staffName: existing.staff?.name ?? null,
+      appointment: updated,
+    });
+    if (ctx) await emailService.sendBookingConfirmation(ctx);
+  }
+
+  return updated;
 }
 
 /** Cancel a confirmed appointment (salon side). */
@@ -207,7 +236,7 @@ export async function cancelAppointment(
     throw ApiError.conflict("Only pending or confirmed appointments can be cancelled.");
   }
 
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const updated = await updateAppointment(tx, salonId, appointmentId, {
       status: "cancelled",
       cancellationReason: reason,
@@ -228,6 +257,17 @@ export async function cancelAppointment(
 
     return updated;
   });
+
+  const ctx = await buildAppointmentEmailContext({
+    salonId,
+    customer: existing.customer,
+    services: existing.services,
+    staffName: existing.staff?.name ?? null,
+    appointment: updated,
+  });
+  if (ctx) await emailService.sendCancellationEmail(ctx, reason);
+
+  return updated;
 }
 
 /** Move an appointment to a new time (and optionally another staff member). */
@@ -250,7 +290,9 @@ export async function rescheduleAppointment(
   const staffId =
     input.staffId !== undefined ? input.staffId : existing.staffId;
 
-  return db.transaction(async (tx) => {
+  const previousStartsAt = existing.startsAt;
+
+  const updated = await db.transaction(async (tx) => {
     if (!input.allowConflicts) {
       const conflicts = await findConflicts(
         tx,
@@ -292,6 +334,26 @@ export async function rescheduleAppointment(
 
     return updated;
   });
+
+  // Staff may have changed as part of the reschedule — re-resolve the name
+  // instead of trusting the pre-reschedule snapshot.
+  const staffName =
+    staffId === existing.staffId
+      ? (existing.staff?.name ?? null)
+      : staffId
+        ? ((await getStaffById(salonId, staffId))?.name ?? null)
+        : null;
+
+  const ctx = await buildAppointmentEmailContext({
+    salonId,
+    customer: existing.customer,
+    services: existing.services,
+    staffName,
+    appointment: updated,
+  });
+  if (ctx) await emailService.sendRescheduleEmail(ctx, previousStartsAt);
+
+  return updated;
 }
 
 export interface EditAppointmentInput {

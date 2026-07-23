@@ -7,8 +7,10 @@ import {
   Badge,
   Button,
   Drawer,
+  EmailLink,
   Field,
   Input,
+  PhoneLink,
   Select,
   Textarea,
   statusLabel,
@@ -154,8 +156,8 @@ export function AppointmentDrawer({
 
         {/* Contact actions */}
         <div className="grid grid-cols-2 gap-2 mb-6">
-          <a
-            href={`mailto:${booking.Gmail}`}
+          <EmailLink
+            email={booking.Gmail}
             className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl border border-ink-200 dark:border-ink-700 hover:border-gold-300 hover:bg-gold-50/50 dark:hover:bg-gold-900/10 transition-all group"
           >
             <Icon name="mail" className="w-4 h-4 text-gold-600 shrink-0" />
@@ -167,9 +169,9 @@ export function AppointmentDrawer({
                 {booking.Gmail || "—"}
               </span>
             </span>
-          </a>
-          <a
-            href={booking.Phone ? `tel:${booking.Phone}` : undefined}
+          </EmailLink>
+          <PhoneLink
+            phone={booking.Phone}
             className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl border border-ink-200 dark:border-ink-700 transition-all ${
               booking.Phone
                 ? "hover:border-gold-300 hover:bg-gold-50/50 dark:hover:bg-gold-900/10"
@@ -185,7 +187,7 @@ export function AppointmentDrawer({
                 {booking.Phone || "Not provided"}
               </span>
             </span>
-          </a>
+          </PhoneLink>
         </div>
 
         {/* Status actions */}

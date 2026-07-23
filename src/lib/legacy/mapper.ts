@@ -184,6 +184,7 @@ export function mapSettings(
     notifyEmailConfirmation: s.notifyEmailConfirmation,
     notifyEmailCancellation: s.notifyEmailCancellation,
     notifyEmailDailySummary: s.notifyEmailDailySummary,
+    notifyEmailReminder: s.notifyEmailReminder,
     notifySmsReminder: s.notifySmsReminder,
     notifySmsConfirmation: s.notifySmsConfirmation,
     reminderHoursBefore: s.reminderHoursBefore,

@@ -11,6 +11,14 @@ export async function getSalonBySlug(slug: string): Promise<Salon | null> {
   return row ?? null;
 }
 
+/** Used when only the id is on hand — e.g. assembling an email payload. */
+export async function getSalonById(id: string): Promise<Salon | null> {
+  const row = await db.query.salons.findFirst({
+    where: and(eq(salons.id, id), isNull(salons.deletedAt)),
+  });
+  return row ?? null;
+}
+
 export async function updateSalon(
   salonId: string,
   patch: Partial<

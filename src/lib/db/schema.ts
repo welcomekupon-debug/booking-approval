@@ -488,6 +488,9 @@ export const settings = pgTable(
       .notNull()
       .default(false),
     notifySmsReminder: boolean("notify_sms_reminder").notNull().default(false),
+    notifyEmailReminder: boolean("notify_email_reminder")
+      .notNull()
+      .default(true),
     reminderHoursBefore: integer("reminder_hours_before").notNull().default(24),
     onboardingComplete: boolean("onboarding_complete").notNull().default(false),
     createdAt: createdAt(),

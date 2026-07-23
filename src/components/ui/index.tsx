@@ -450,6 +450,69 @@ export function Tooltip({
   );
 }
 
+// ── Click-to-contact ────────────────────────────────────────────────────────
+//
+// Single source of truth for mailto:/tel: links so every place a customer's
+// email or phone is shown behaves identically. Pass `children` for a custom
+// label (icon + text, a placeholder like "Not provided", etc.) — otherwise
+// the raw value is rendered. When the value is empty, renders a plain span
+// (same className, non-interactive) instead of a dead link.
+
+export function EmailLink({
+  email,
+  className,
+  stopPropagation = false,
+  children,
+  ...rest
+}: {
+  email?: string | null;
+  className?: string;
+  /** Set when nested inside another clickable element (e.g. a card that opens a drawer) */
+  stopPropagation?: boolean;
+  children?: ReactNode;
+} & Pick<HTMLAttributes<HTMLElement>, "aria-label">) {
+  if (!email) {
+    return children ? <span className={className}>{children}</span> : null;
+  }
+  return (
+    <a
+      href={`mailto:${email}`}
+      className={className}
+      onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+      {...rest}
+    >
+      {children ?? email}
+    </a>
+  );
+}
+
+export function PhoneLink({
+  phone,
+  className,
+  stopPropagation = false,
+  children,
+  ...rest
+}: {
+  phone?: string | null;
+  className?: string;
+  stopPropagation?: boolean;
+  children?: ReactNode;
+} & Pick<HTMLAttributes<HTMLElement>, "aria-label">) {
+  if (!phone) {
+    return children ? <span className={className}>{children}</span> : null;
+  }
+  return (
+    <a
+      href={`tel:${phone}`}
+      className={className}
+      onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+      {...rest}
+    >
+      {children ?? phone}
+    </a>
+  );
+}
+
 // ── Segmented control ───────────────────────────────────────────────────────
 
 export function Segmented<T extends string>({
