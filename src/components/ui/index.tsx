@@ -136,7 +136,7 @@ export function statusTone(status: string): BadgeTone {
   const s = status?.trim().toLowerCase();
   if (s === "confirmed") return "green";
   if (s === "pending") return "amber";
-  if (s === "declined") return "red";
+  if (s === "declined" || s === "cancelled") return "red";
   return "grey";
 }
 
@@ -145,6 +145,7 @@ export function statusLabel(status: string): string {
   if (s === "confirmed") return "Confirmed";
   if (s === "pending") return "Pending";
   if (s === "declined") return "Declined";
+  if (s === "cancelled") return "Cancelled";
   return status || "Unknown";
 }
 

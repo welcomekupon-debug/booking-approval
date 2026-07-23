@@ -48,5 +48,5 @@ export interface BookingUpdatePayload {
   price?: string;
 }
 
-export type StatusFilter = "all" | "pending" | "confirmed" | "declined";
+export type StatusFilter = "all" | "pending" | "confirmed" | "declined" | "cancelled";
 export type DateFilter = "all" | "today" | "week" | "month" | "upcoming";

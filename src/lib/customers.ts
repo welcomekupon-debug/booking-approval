@@ -42,7 +42,7 @@ export function deriveCustomers(
     for (const b of list) {
       const s = normStatus(b);
       if (s === "confirmed") confirmed++;
-      else if (s === "declined") declined++;
+      else if (s === "declined" || s === "cancelled") declined++;
       else if (s === "pending") pending++;
 
       if (b.Ime?.trim()) name = b.Ime.trim();
@@ -57,7 +57,7 @@ export function deriveCustomers(
       if (d) {
         if (!first || d < first) first = d;
         if (!last || d > last) last = d;
-        if (d >= now && s !== "declined") {
+        if (d >= now && s !== "declined" && s !== "cancelled") {
           const dt = bookingDateTime(b.Datum, b.Ura) ?? d;
           if (!nextDate || dt < nextDate) {
             nextDate = dt;

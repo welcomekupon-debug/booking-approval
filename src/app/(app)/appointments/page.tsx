@@ -181,6 +181,7 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "pending", label: "Pending" },
   { value: "confirmed", label: "Confirmed" },
   { value: "declined", label: "Declined" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 const DATE_OPTIONS: { value: DateFilter; label: string }[] = [

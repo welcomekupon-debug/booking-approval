@@ -128,7 +128,8 @@ export default function DashboardPage() {
     const now = new Date();
     return bookings
       .filter((b) => {
-        if (normStatus(b) === "declined") return false;
+        const s = normStatus(b);
+        if (s === "declined" || s === "cancelled") return false;
         const d = bookingDateTime(b.Datum, b.Ura);
         return d !== null && isSameDay(d, now);
       })
@@ -235,7 +236,7 @@ export default function DashboardPage() {
           <StatCard label="Upcoming" value={stats.upcoming} icon="calendar" hint="from tomorrow" delay={40} href="/appointments?date=upcoming" />
           <StatCard label="Pending" value={stats.pending} icon="bell" hint="awaiting review" delay={80} href="/appointments?status=pending" />
           <StatCard label="Confirmed" value={stats.confirmed} icon="check" hint="all time" delay={120} href="/appointments?status=confirmed" />
-          <StatCard label="Cancelled" value={stats.cancelled} icon="x" hint="all time" delay={160} href="/appointments?status=declined" />
+          <StatCard label="Cancelled" value={stats.cancelled} icon="x" hint="declined + cancelled, all time" delay={160} href="/appointments" />
           {settings.revenueEnabled && (
             <StatCard
               label="Revenue"
@@ -461,7 +462,8 @@ export default function DashboardPage() {
           ) : (
             <div className="flex flex-col">
               {activity.map((a) => {
-                const confirmed = a.Status.trim().toLowerCase() === "confirmed";
+                const activityStatus = a.Status.trim().toLowerCase();
+                const confirmed = activityStatus === "confirmed";
                 return (
                   <div
                     key={`${a.id}-${a.UpdatedAt}`}
@@ -480,7 +482,7 @@ export default function DashboardPage() {
                       <span className="font-semibold text-ink-900 dark:text-ink-100">
                         {a.Ime}
                       </span>{" "}
-                      {confirmed ? "confirmed" : "declined"}
+                      {confirmed ? "confirmed" : activityStatus}
                     </p>
                     <span className="text-[11px] text-ink-300 dark:text-ink-500 shrink-0">
                       {formatRelativeTime(a.UpdatedAt)}

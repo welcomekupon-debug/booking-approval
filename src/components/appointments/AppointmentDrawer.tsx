@@ -226,7 +226,7 @@ export function AppointmentDrawer({
             Cancel appointment
           </Button>
         )}
-        {status === "declined" && (
+        {(status === "declined" || status === "cancelled") && (
           <Button
             variant="success"
             icon="check"

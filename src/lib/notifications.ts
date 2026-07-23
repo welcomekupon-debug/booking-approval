@@ -62,6 +62,17 @@ export function deriveNotifications(bookings: Booking[]): AppNotification[] {
       });
     }
 
+    if (status === "cancelled" && updated && !isNaN(updated.getTime())) {
+      items.push({
+        id: `cancel-${idBase}`,
+        kind: "cancellation",
+        title: "Appointment cancelled",
+        body: `${b.Ime} — ${b.Datum} at ${b.Ura}.`,
+        time: updated,
+        href: "/appointments?status=cancelled",
+      });
+    }
+
     // Reminder: confirmed appointments happening today
     if (status === "confirmed" && when && isSameDay(when, today) && when >= now) {
       items.push({

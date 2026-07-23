@@ -89,13 +89,13 @@ export function computeDashboardStats(bookings: Booking[]): DashboardStats {
     const status = normStatus(b);
     if (status === "pending") pending++;
     else if (status === "confirmed") confirmed++;
-    else if (status === "declined") cancelled++;
+    else if (status === "declined" || status === "cancelled") cancelled++;
 
     const d = parseBookingDate(b.Datum);
     if (!d) continue;
 
     if (d >= today && d < tomorrow) todayCount++;
-    if (d >= tomorrow && status !== "declined") upcoming++;
+    if (d >= tomorrow && status !== "declined" && status !== "cancelled") upcoming++;
 
     if (d >= weekStart && d < addDays(weekStart, 7)) weekCount++;
     if (d >= lastWeekStart && d < weekStart) lastWeekCount++;
@@ -129,7 +129,8 @@ export function computeDashboardStats(bookings: Booking[]): DashboardStats {
     const dayStart = addDays(today, i);
     const dayEnd = addDays(dayStart, 1);
     const has = bookings.some((b) => {
-      if (normStatus(b) === "declined") return false;
+      const s = normStatus(b);
+      if (s === "declined" || s === "cancelled") return false;
       const d = parseBookingDate(b.Datum);
       return d !== null && d >= dayStart && d < dayEnd;
     });
@@ -234,7 +235,8 @@ export function revenuePerMonth(bookings: Booking[], months = 6): SeriesPoint[] 
 export function bookingsByHour(bookings: Booking[]): SeriesPoint[] {
   const counts = new Array(24).fill(0);
   for (const b of bookings) {
-    if (normStatus(b) === "declined") continue;
+    const s = normStatus(b);
+    if (s === "declined" || s === "cancelled") continue;
     const dt = bookingDateTime(b.Datum, b.Ura);
     if (dt) counts[dt.getHours()]++;
   }
@@ -249,7 +251,8 @@ export function bookingsByHour(bookings: Booking[]): SeriesPoint[] {
 export function bookingsByService(bookings: Booking[]): SeriesPoint[] {
   const counts = new Map<string, number>();
   for (const b of bookings) {
-    if (normStatus(b) === "declined") continue;
+    const s = normStatus(b);
+    if (s === "declined" || s === "cancelled") continue;
     const service = b.Service?.trim() || "Unspecified";
     counts.set(service, (counts.get(service) ?? 0) + 1);
   }
@@ -262,7 +265,8 @@ export function bookingsByService(bookings: Booking[]): SeriesPoint[] {
 export function bookingsByStaff(bookings: Booking[]): SeriesPoint[] {
   const counts = new Map<string, number>();
   for (const b of bookings) {
-    if (normStatus(b) === "declined") continue;
+    const s = normStatus(b);
+    if (s === "declined" || s === "cancelled") continue;
     const staff = b.Staff?.trim() || "Unassigned";
     counts.set(staff, (counts.get(staff) ?? 0) + 1);
   }

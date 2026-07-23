@@ -4,7 +4,7 @@ import type { Booking, ActivityItem } from "@/types/booking";
  * Derive a sorted activity feed from a full bookings array.
  *
  * Rules:
- *  - Only "confirmed" and "declined" bookings are included
+ *  - Only "confirmed", "declined", and "cancelled" bookings are included
  *  - Bookings without an UpdatedAt timestamp are excluded (they pre-date
  *    this feature and cannot be sorted correctly)
  *  - Results are sorted newest-first by UpdatedAt
@@ -19,7 +19,7 @@ export function getRecentActivity(
   return bookings
     .filter((b) => {
       const s = b.Status?.trim().toLowerCase();
-      return (s === "confirmed" || s === "declined") && b.UpdatedAt;
+      return (s === "confirmed" || s === "declined" || s === "cancelled") && b.UpdatedAt;
     })
     .sort((a, b) => {
       const tA = new Date(a.UpdatedAt).getTime();
