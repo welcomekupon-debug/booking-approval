@@ -27,11 +27,15 @@ const NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: "settings", shortcut: "S" },
 ];
 
-function Logo({ name }: { name?: string }) {
+function Logo({ name, logoUrl }: { name?: string; logoUrl?: string }) {
   return (
     <Link href="/" className="flex items-center gap-2.5 min-w-0 group">
-      <span className="w-9 h-9 rounded-xl bg-ink-900 dark:bg-gold-500 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105">
-        <Icon name="sparkle" className="w-4.5 h-4.5 w-5 h-5 text-gold-400 dark:text-white" />
+      <span className="w-9 h-9 rounded-xl bg-ink-900 dark:bg-gold-500 flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-300 group-hover:scale-105">
+        {logoUrl ? (
+          <img src={logoUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <Icon name="sparkle" className="w-4.5 h-4.5 w-5 h-5 text-gold-400 dark:text-white" />
+        )}
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-bold text-ink-900 dark:text-ink-50 leading-tight truncate">
@@ -171,7 +175,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 z-30">
         <div className="px-5 pt-6 pb-5">
-          <Logo name={settings.businessName || clientName} />
+          <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
         </div>
 
         <div className="px-3 flex-1 overflow-y-auto">
@@ -222,7 +226,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
 
         <div className="lg:hidden">
-          <Logo name={settings.businessName || clientName} />
+          <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
         </div>
 
         {/* Global search trigger */}
@@ -276,7 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <aside className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 p-5 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
-              <Logo name={settings.businessName || clientName} />
+              <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
               <button
                 onClick={() => setMobileNavOpen(false)}
                 className="p-2 rounded-xl text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800"
