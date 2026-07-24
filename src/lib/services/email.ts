@@ -177,6 +177,7 @@ export function toEmailSalonInfo(salon: Salon): EmailSalonInfo {
     phone: salon.phone,
     timezone: salon.timezone,
     currency: salon.currency,
+    bookingUrl: `${appBaseUrl()}/book/${salon.slug}`,
   };
 }
 

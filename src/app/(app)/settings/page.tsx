@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useWorkspace } from "@/components/providers/WorkspaceProvider";
@@ -106,6 +106,7 @@ function SettingsContent() {
     settings,
     services,
     staff,
+    refresh,
     saveSettings,
     saveServices,
     saveStaff,
@@ -119,6 +120,9 @@ function SettingsContent() {
   const [holidayTo, setHolidayTo] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [granularityMode, setGranularityMode] = useState<
     "15" | "30" | "60" | "custom"
   >(
@@ -158,6 +162,25 @@ function SettingsContent() {
       setToast("Couldn't save — please try again");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    setUploadingLogo(true);
+    setLogoError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/uploads/logo", { method: "POST", body });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
+      patch({ logoUrl: json.logoUrl });
+      await refresh();
+      setToast("Logo updated");
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploadingLogo(false);
     }
   }
 
@@ -311,12 +334,33 @@ function SettingsContent() {
                   )}
                 </div>
                 <div className="flex-1 w-full flex flex-col gap-4">
-                  <Field label="Logo URL" hint="Direct link to your logo image.">
-                    <Input
-                      value={form.logoUrl}
-                      onChange={(e) => patch({ logoUrl: e.target.value })}
-                      placeholder="https://…/logo.png"
-                    />
+                  <Field label="Logo" hint="PNG, JPG, or WebP — up to 3MB.">
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        disabled={uploadingLogo}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) uploadLogo(file);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon="image"
+                        loading={uploadingLogo}
+                        onClick={() => logoInputRef.current?.click()}
+                      >
+                        {form.logoUrl ? "Replace logo" : "Upload logo"}
+                      </Button>
+                    </div>
+                    {logoError && (
+                      <p className="text-xs text-rose-600 mt-2">{logoError}</p>
+                    )}
                   </Field>
                   <Field label="Brand colour" hint="Used for future customer-facing pages.">
                     <div className="flex items-center gap-3">
