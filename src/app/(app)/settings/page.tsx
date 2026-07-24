@@ -599,7 +599,10 @@ function SettingsContent() {
             >
               <div className="flex flex-col gap-3">
                 {serviceList.length > 0 && (
-                  <div className="hidden sm:grid grid-cols-[1.6fr_0.8fr_0.8fr_auto_auto] gap-2 px-3">
+                  <div className="hidden sm:grid grid-cols-[auto_1.6fr_0.8fr_0.8fr_auto_auto] gap-2 px-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                      Colour
+                    </span>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
                       Service name
                     </span>
@@ -618,8 +621,17 @@ function SettingsContent() {
                 {serviceList.map((s, i) => (
                   <div
                     key={i}
-                    className="grid sm:grid-cols-[1.6fr_0.8fr_0.8fr_auto_auto] grid-cols-2 gap-2 items-center p-3 rounded-xl border border-ink-100 dark:border-ink-800"
+                    className="grid sm:grid-cols-[auto_1.6fr_0.8fr_0.8fr_auto_auto] grid-cols-2 gap-2 items-center p-3 rounded-xl border border-ink-100 dark:border-ink-800"
                   >
+                    <input
+                      type="color"
+                      value={s.color || "#B99A55"}
+                      title="Calendar colour"
+                      onChange={(e) =>
+                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, color: e.target.value } : x)))
+                      }
+                      className="w-9 h-9 rounded-lg border border-ink-200 dark:border-ink-700 cursor-pointer bg-transparent shrink-0"
+                    />
                     <Input
                       value={s.name}
                       placeholder="Service name"

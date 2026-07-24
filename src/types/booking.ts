@@ -20,6 +20,8 @@ export interface Booking {
   UpdatedAt: string;
   Phone: string;
   Service: string;
+  /** Catalog id of the first line item's service — used to color-code the calendar. "" if none/deleted. */
+  ServiceId: string;
   Duration: string; // minutes, as string ("30")
   Notes: string;
   Price: string; // decimal string in salon currency ("45")

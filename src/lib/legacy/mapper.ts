@@ -91,6 +91,7 @@ export function mapAppointment(
     UpdatedAt: a.updatedAt.toISOString(),
     Phone: a.customer.phone ?? "",
     Service: a.services.map((s) => s.serviceName).join(", "),
+    ServiceId: a.services[0]?.serviceId ?? "",
     Duration: durationMinutes ? String(durationMinutes) : "",
     Notes: a.internalNote ?? "",
     Price: centsToDecimal(a.priceTotalCents),

@@ -9,7 +9,7 @@
  * endpoint and reconcile by Bookingid without any UI changes.
  */
 
-import { useMemo, useState, type DragEvent } from "react";
+import { useMemo, useState, type CSSProperties, type DragEvent } from "react";
 import { useWorkspace } from "@/components/providers/WorkspaceProvider";
 import { PageHeader } from "@/components/PageHeader";
 import { AppointmentDrawer } from "@/components/appointments/AppointmentDrawer";
@@ -51,10 +51,58 @@ const STATUS_CHIP: Record<string, string> = {
   pending: "bg-amber-400/90 text-amber-950 border-amber-500 hover:bg-amber-400",
   declined:
     "bg-ink-200 dark:bg-ink-700 text-ink-500 dark:text-ink-400 border-ink-300 dark:border-ink-600 line-through opacity-70",
+  cancelled:
+    "bg-ink-200 dark:bg-ink-700 text-ink-500 dark:text-ink-400 border-ink-300 dark:border-ink-600 line-through opacity-70",
 };
 
 function chipClass(status: string) {
   return STATUS_CHIP[status] ?? "bg-ink-400 text-white border-ink-500";
+}
+
+const STATUS_DOT: Record<string, string> = {
+  confirmed: "#10b981", // emerald-500
+  pending: "#f59e0b", // amber-500
+  declined: "#9ca3af", // gray-400
+  cancelled: "#9ca3af",
+};
+
+/** "#RRGGBB" → "rgba(r,g,b,a)"; passthrough-safe for anything else. */
+function hexToRgba(hex: string, alpha: number): string | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * When a service has a calendar colour set, it takes over the chip's look
+ * (tinted background + coloured left edge) with a small status dot so
+ * pending/declined/cancelled are still visible at a glance. Services left
+ * uncoloured fall back to the original status-only styling.
+ */
+function chipAppearance(
+  status: string,
+  serviceColor?: string
+): { className: string; style?: CSSProperties } {
+  const tint = serviceColor ? hexToRgba(serviceColor, 0.16) : null;
+  const border = serviceColor ? hexToRgba(serviceColor, 0.4) : null;
+  if (!tint || !border) {
+    return { className: chipClass(status) };
+  }
+  const muted = status === "declined" || status === "cancelled";
+  return {
+    className: `border-l-4 text-ink-800 dark:text-ink-50 ${
+      muted ? "line-through opacity-60" : ""
+    }`,
+    style: {
+      backgroundColor: tint,
+      borderColor: border,
+      borderLeftColor: serviceColor,
+    },
+  };
 }
 
 interface DropPayload {
@@ -63,8 +111,16 @@ interface DropPayload {
 }
 
 export default function CalendarPage() {
-  const { bookings, settings, loading, error, refresh, updateBooking } =
+  const { bookings, services, settings, loading, error, refresh, updateBooking } =
     useWorkspace();
+
+  const serviceColorById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of services) {
+      if (s.id && s.color) map[s.id] = s.color;
+    }
+    return map;
+  }, [services]);
 
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
@@ -182,10 +238,12 @@ export default function CalendarPage() {
     compact = false,
   }: {
     b: Booking;
-    style?: React.CSSProperties;
+    style?: CSSProperties;
     compact?: boolean;
   }) {
     const status = normStatus(b);
+    const serviceColor = b.ServiceId ? serviceColorById[b.ServiceId] : undefined;
+    const appearance = chipAppearance(status, serviceColor);
     return (
       <button
         draggable
@@ -198,12 +256,18 @@ export default function CalendarPage() {
           e.stopPropagation();
           setOpenRow(b.id);
         }}
-        style={style}
+        style={{ ...style, ...appearance.style }}
         title={`${b.Ime}${b.Service ? ` · ${b.Service}` : ""} · ${b.Ura}${b.Staff ? ` · ${b.Staff}` : ""}`}
-        className={`group/event text-left border rounded-lg px-2 py-1 text-[11px] font-semibold leading-tight truncate cursor-grab active:cursor-grabbing transition-all duration-150 shadow-sm hover:shadow-md hover:z-20 ${chipClass(status)} ${
+        className={`group/event text-left border rounded-lg px-2 py-1 text-[11px] font-semibold leading-tight truncate cursor-grab active:cursor-grabbing transition-all duration-150 shadow-sm hover:shadow-md hover:z-20 ${appearance.className} ${
           dragRow === b.id ? "dragging" : ""
         }`}
       >
+        {appearance.style && (
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle"
+            style={{ backgroundColor: STATUS_DOT[status] ?? STATUS_DOT.declined }}
+          />
+        )}
         {!compact && <span className="opacity-80">{b.Ura} </span>}
         {b.Ime}
         {!compact && b.Service && (
