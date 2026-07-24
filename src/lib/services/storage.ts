@@ -49,7 +49,7 @@ export async function uploadLogo(
         "Content-Type": contentType,
         "x-upsert": "true",
       },
-      body: file,
+      body: new Uint8Array(file),
     }
   );
 
