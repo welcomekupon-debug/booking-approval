@@ -69,6 +69,18 @@ export const notificationType = pgEnum("notification_type", [
   "reminder",
   "missed",
   "system",
+  "change_requested",
+]);
+
+export const changeRequestType = pgEnum("change_request_type", [
+  "cancel",
+  "reschedule",
+]);
+
+export const changeRequestStatus = pgEnum("change_request_status", [
+  "pending",
+  "approved",
+  "declined",
 ]);
 
 export const calendarProvider = pgEnum("calendar_provider", [
@@ -353,6 +365,41 @@ export const appointmentServices = pgTable(
   (t) => [
     index("appointment_services_appointment_idx").on(t.appointmentId),
     index("appointment_services_salon_service_idx").on(t.salonId, t.serviceId),
+  ]
+);
+
+/**
+ * Customer-initiated cancel/reschedule requests, submitted from the public
+ * "manage your booking" page (linked from confirmation/reminder emails).
+ * These never mutate the appointment directly — a salon staff member must
+ * approve before anything actually changes, mirroring the same
+ * pending-request pattern new bookings already use.
+ */
+export const appointmentChangeRequests = pgTable(
+  "appointment_change_requests",
+  {
+    id: id(),
+    salonId: uuid("salon_id")
+      .notNull()
+      .references(() => salons.id, { onDelete: "cascade" }),
+    appointmentId: uuid("appointment_id")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    type: changeRequestType("type").notNull(),
+    status: changeRequestStatus("status").notNull().default("pending"),
+    /** Reschedule only — the time the customer proposed. */
+    requestedStartsAt: timestamp("requested_starts_at", { withTimezone: true }),
+    /** Customer's own note, either reason for cancelling or context. */
+    customerNote: text("customer_note"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("change_requests_salon_status_idx").on(t.salonId, t.status),
+    index("change_requests_appointment_idx").on(t.appointmentId),
   ]
 );
 
@@ -717,11 +764,30 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
     references: [staff.id],
   }),
   services: many(appointmentServices),
+  changeRequests: many(appointmentChangeRequests),
   rescheduledFrom: one(appointments, {
     fields: [appointments.rescheduledFromId],
     references: [appointments.id],
   }),
 }));
+
+export const appointmentChangeRequestsRelations = relations(
+  appointmentChangeRequests,
+  ({ one }) => ({
+    salon: one(salons, {
+      fields: [appointmentChangeRequests.salonId],
+      references: [salons.id],
+    }),
+    appointment: one(appointments, {
+      fields: [appointmentChangeRequests.appointmentId],
+      references: [appointments.id],
+    }),
+    resolvedByUser: one(users, {
+      fields: [appointmentChangeRequests.resolvedByUserId],
+      references: [users.id],
+    }),
+  })
+);
 
 export const appointmentServicesRelations = relations(
   appointmentServices,

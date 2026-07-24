@@ -142,11 +142,22 @@ export interface ServerNotification {
     | "cancellation"
     | "reminder"
     | "missed"
-    | "system";
+    | "system"
+    | "change_requested";
   title: string;
   body: string;
   appointmentId: string | null;
   readAt: string | null;
+  createdAt: string;
+}
+
+/** A customer-submitted cancel/reschedule request awaiting staff review. */
+export interface ChangeRequestItem {
+  id: string;
+  appointmentId: string;
+  type: "cancel" | "reschedule";
+  requestedStartsAt: string | null;
+  customerNote: string | null;
   createdAt: string;
 }
 
@@ -159,6 +170,7 @@ export interface WorkspaceData {
   staff: StaffMember[];
   customerMeta: CustomerMeta[];
   notifications: ServerNotification[];
+  changeRequests: ChangeRequestItem[];
   settings: BusinessSettings;
 }
 

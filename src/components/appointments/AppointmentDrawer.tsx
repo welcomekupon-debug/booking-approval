@@ -42,7 +42,14 @@ export function AppointmentDrawer({
   booking: Booking | null;
   onClose: () => void;
 }) {
-  const { services, staff, settings, updateBooking } = useWorkspace();
+  const {
+    services,
+    staff,
+    settings,
+    updateBooking,
+    changeRequests,
+    resolveChangeRequest,
+  } = useWorkspace();
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -55,6 +62,7 @@ export function AppointmentDrawer({
   const [deciding, setDeciding] = useState<"Confirmed" | "Declined" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [resolving, setResolving] = useState<"approve" | "decline" | null>(null);
 
   useEffect(() => {
     if (!booking) return;
@@ -122,6 +130,23 @@ export function AppointmentDrawer({
     }
   }
 
+  const pendingRequest = changeRequests.find(
+    (r) => r.appointmentId === booking?.id
+  );
+
+  async function handleResolve(action: "approve" | "decline") {
+    if (!pendingRequest) return;
+    setResolving(action);
+    setError(null);
+    try {
+      await resolveChangeRequest(pendingRequest.id, action);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resolve request.");
+    } finally {
+      setResolving(null);
+    }
+  }
+
   return (
     <Drawer open onClose={onClose}>
       <div className="p-6">
@@ -153,6 +178,61 @@ export function AppointmentDrawer({
             <Icon name="x" className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Customer-requested change, awaiting review */}
+        {pendingRequest && (
+          <div className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/15 p-4 mb-6">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Icon name="clock" className="w-4 h-4 text-amber-600 shrink-0" />
+              <p className="text-sm font-bold text-ink-900 dark:text-ink-50">
+                {pendingRequest.type === "cancel"
+                  ? "Customer requested cancellation"
+                  : "Customer suggested a new time"}
+              </p>
+            </div>
+            {pendingRequest.type === "reschedule" && pendingRequest.requestedStartsAt && (
+              <p className="text-xs text-ink-600 dark:text-ink-300 mb-1.5">
+                Proposed:{" "}
+                {new Intl.DateTimeFormat(undefined, {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(new Date(pendingRequest.requestedStartsAt))}
+              </p>
+            )}
+            {pendingRequest.customerNote && (
+              <p className="text-xs text-ink-500 dark:text-ink-400 italic mb-2">
+                &ldquo;{pendingRequest.customerNote}&rdquo;
+              </p>
+            )}
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="success"
+                size="sm"
+                icon="check"
+                className="flex-1"
+                loading={resolving === "approve"}
+                disabled={resolving !== null}
+                onClick={() => handleResolve("approve")}
+              >
+                Approve
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="x"
+                className="flex-1"
+                loading={resolving === "decline"}
+                disabled={resolving !== null}
+                onClick={() => handleResolve("decline")}
+              >
+                Decline
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Contact actions */}
         <div className="grid grid-cols-2 gap-2 mb-6">

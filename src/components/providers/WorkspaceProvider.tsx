@@ -14,6 +14,7 @@ import {
   DEFAULT_SETTINGS,
   type AppNotification,
   type BusinessSettings,
+  type ChangeRequestItem,
   type Customer,
   type CustomerMeta,
   type NotificationKind,
@@ -45,6 +46,7 @@ interface WorkspaceContextValue {
   customers: Customer[];
   notifications: AppNotification[];
   unreadCount: number;
+  changeRequests: ChangeRequestItem[];
   refresh: () => Promise<void>;
   updateBooking: (id: string, fields: BookingUpdatePayload) => Promise<void>;
   createAppointment: (input: CreateAppointmentInput) => Promise<void>;
@@ -54,6 +56,10 @@ interface WorkspaceContextValue {
   saveCustomerMeta: (meta: CustomerMeta) => Promise<void>;
   markAllNotificationsRead: () => void;
   isNotificationRead: (id: string) => boolean;
+  resolveChangeRequest: (
+    id: string,
+    action: "approve" | "decline"
+  ) => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -82,6 +88,7 @@ const KIND_MAP: Record<string, NotificationKind> = {
   reminder: "reminder",
   missed: "missed",
   system: "system",
+  change_requested: "request",
 };
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -268,7 +275,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       href:
         n.type === "new_request"
           ? "/appointments?status=pending"
-          : "/appointments",
+          : n.type === "change_requested" && n.appointmentId
+            ? `/appointments?open=${n.appointmentId}`
+            : "/appointments",
     }));
 
     // Client-derived, time-sensitive items (today's reminders, missed)
@@ -310,6 +319,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [data, notifications]);
 
+  const resolveChangeRequest = useCallback(
+    async (id: string, action: "approve" | "decline") => {
+      const res = await fetch(`/api/change-requests/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to resolve request.");
+      }
+      await refresh();
+    },
+    [refresh]
+  );
+
   const value: WorkspaceContextValue = {
     loading,
     error,
@@ -322,6 +347,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     customers,
     notifications,
     unreadCount,
+    changeRequests: data?.changeRequests ?? [],
     refresh,
     updateBooking,
     createAppointment,
@@ -331,6 +357,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     saveCustomerMeta,
     markAllNotificationsRead,
     isNotificationRead,
+    resolveChangeRequest,
   };
 
   return (

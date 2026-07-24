@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/public(.*)",
   // Public booking pages
   "/book(.*)",
+  // Public "manage your booking" page — token-gated instead of Clerk-gated
+  "/manage(.*)",
   // Scheduled jobs — no Clerk session (called by Vercel Cron), protected by CRON_SECRET instead
   "/api/cron(.*)",
 ]);

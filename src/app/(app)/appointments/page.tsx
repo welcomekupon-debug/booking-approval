@@ -55,12 +55,14 @@ function AppointmentCard({
   onDecide,
   acting,
   index,
+  hasChangeRequest,
 }: {
   booking: Booking;
   onOpen: () => void;
   onDecide: (status: "Confirmed" | "Declined") => void;
   acting: boolean;
   index: number;
+  hasChangeRequest?: boolean;
 }) {
   const status = normStatus(booking);
 
@@ -78,9 +80,16 @@ function AppointmentCard({
             <h3 className="text-[15px] font-bold text-ink-900 dark:text-ink-50 truncate">
               {booking.Ime}
             </h3>
-            <Badge tone={statusTone(booking.Status)} dot>
-              {statusLabel(booking.Status)}
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {hasChangeRequest && (
+                <Badge tone="amber" dot>
+                  Change requested
+                </Badge>
+              )}
+              <Badge tone={statusTone(booking.Status)} dot>
+                {statusLabel(booking.Status)}
+              </Badge>
+            </div>
           </div>
           <EmailLink
             email={booking.Gmail}
@@ -194,7 +203,12 @@ const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
 
 function AppointmentsContent() {
   const params = useSearchParams();
-  const { bookings, loading, error, refresh, updateBooking } = useWorkspace();
+  const { bookings, loading, error, refresh, updateBooking, changeRequests } =
+    useWorkspace();
+  const changeRequestAppointmentIds = useMemo(
+    () => new Set(changeRequests.map((r) => r.appointmentId)),
+    [changeRequests]
+  );
 
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [status, setStatus] = useState<StatusFilter>(
@@ -219,8 +233,10 @@ function AppointmentsContent() {
   useEffect(() => {
     const q = params.get("q");
     const s = params.get("status") as StatusFilter | null;
+    const openId = params.get("open");
     if (q !== null) setQuery(q);
     if (s) setStatus(s);
+    if (openId) setOpenRow(openId);
   }, [params]);
 
   const filtered = useMemo(() => {
@@ -423,6 +439,7 @@ function AppointmentsContent() {
               acting={acting === b.id}
               onOpen={() => setOpenRow(b.id)}
               onDecide={(s) => decide(b.id, s)}
+              hasChangeRequest={changeRequestAppointmentIds.has(b.id)}
             />
           ))}
         </div>

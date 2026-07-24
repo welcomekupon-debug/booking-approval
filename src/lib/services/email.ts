@@ -1,5 +1,6 @@
 import type { Salon } from "@/lib/db/types";
 import { getSalonById } from "@/lib/repositories/salons";
+import { appBaseUrl, buildManageUrl } from "@/lib/services/manageToken";
 
 /**
  * Email service — the ONLY thing in this app that knows an n8n webhook
@@ -32,6 +33,8 @@ export interface EmailSalonInfo {
   phone: string | null;
   timezone: string;
   currency: string;
+  /** Public booking page — for "book again" / rebooking CTAs. */
+  bookingUrl: string;
 }
 
 export interface EmailCustomerInfo {
@@ -57,6 +60,10 @@ export interface EmailAppointmentInfo {
   staffName: string;
   priceTotalCents: number;
   notes: string | null;
+  /** Public "manage your booking" link — request a cancellation or reschedule.
+   *  "" when APPOINTMENT_MANAGE_SECRET isn't configured; templates should
+   *  hide the button/line rather than link to a broken URL. */
+  manageUrl: string;
 }
 
 export interface AppointmentEmailContext {
@@ -220,6 +227,7 @@ export async function buildAppointmentEmailContext(params: {
       staffName: params.staffName ?? "",
       priceTotalCents: params.appointment.priceTotalCents,
       notes: params.appointment.customerNote,
+      manageUrl: buildManageUrl(params.appointment.id) ?? "",
     },
   };
 }

@@ -8,6 +8,7 @@ import { listCustomers } from "@/lib/repositories/customers";
 import { listBlockedTimes, listBusinessHours } from "@/lib/repositories/hours";
 import { listNotifications } from "@/lib/repositories/notifications";
 import { getSettings } from "@/lib/repositories/settings";
+import { listPendingChangeRequests } from "@/lib/repositories/changeRequests";
 import {
   mapAppointment,
   mapCustomerMeta,
@@ -35,6 +36,7 @@ export async function GET() {
         staff: [],
         customerMeta: [],
         notifications: [],
+        changeRequests: [],
         settings: { ...DEFAULT_SETTINGS, onboardingComplete: false },
       };
     }
@@ -54,6 +56,7 @@ export async function GET() {
       hours,
       blocks,
       notifications,
+      changeRequests,
     ] = await Promise.all([
       listAppointments(salon.id, {
         from: new Date(now - yearMs),
@@ -68,6 +71,7 @@ export async function GET() {
       listBusinessHours(salon.id),
       listBlockedTimes(salon.id),
       listNotifications(salon.id, ctx.user.id, { limit: 50 }),
+      listPendingChangeRequests(salon.id),
     ]);
 
     return {
@@ -85,6 +89,16 @@ export async function GET() {
         appointmentId: n.appointmentId,
         readAt: n.readAt ? n.readAt.toISOString() : null,
         createdAt: n.createdAt.toISOString(),
+      })),
+      changeRequests: changeRequests.map((r) => ({
+        id: r.id,
+        appointmentId: r.appointmentId,
+        type: r.type,
+        requestedStartsAt: r.requestedStartsAt
+          ? r.requestedStartsAt.toISOString()
+          : null,
+        customerNote: r.customerNote,
+        createdAt: r.createdAt.toISOString(),
       })),
       settings: mapSettings(salon, settings, hours, blocks),
     };
