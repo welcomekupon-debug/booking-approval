@@ -11,6 +11,7 @@ import {
   bookingsByService,
   bookingsByStaff,
   bookingsPerMonth,
+  businessHourRange,
   computeDashboardStats,
   retentionRate,
   revenuePerMonth,
@@ -53,7 +54,10 @@ export default function AnalyticsPage() {
     () => bookingsByStaff(bookings).slice(0, 6),
     [bookings]
   );
-  const hours = useMemo(() => bookingsByHour(bookings), [bookings]);
+  const hours = useMemo(
+    () => bookingsByHour(bookings, businessHourRange(settings.hours)),
+    [bookings, settings.hours]
+  );
   const retention = useMemo(() => retentionRate(bookings), [bookings]);
 
   const growth = useMemo(() => {

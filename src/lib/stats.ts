@@ -1,4 +1,5 @@
 import type { Booking } from "@/types/booking";
+import { DAY_KEYS, type DayHours } from "@/types/app";
 import {
   addDays,
   bookingDateTime,
@@ -231,8 +232,36 @@ export function revenuePerMonth(bookings: Booking[], months = 6): SeriesPoint[] 
   return points;
 }
 
+export interface HourRange {
+  start: number; // 0-23
+  end: number; // 0-23, inclusive
+}
+
+/**
+ * Earliest opening / latest closing hour across the days the salon is open,
+ * rounded down/up to the hour. Falls back to 7–20 when no day is marked open
+ * (e.g. hours not set up yet) so the dashboard never renders an empty chart.
+ */
+export function businessHourRange(hours: Record<string, DayHours>): HourRange {
+  let start = 24;
+  let end = 0;
+  for (const key of DAY_KEYS) {
+    const day = hours[key];
+    if (!day?.open) continue;
+    const from = parseInt(day.from?.slice(0, 2) ?? "", 10);
+    const to = parseInt(day.to?.slice(0, 2) ?? "", 10);
+    if (!Number.isNaN(from)) start = Math.min(start, from);
+    if (!Number.isNaN(to)) end = Math.max(end, to);
+  }
+  if (start > end) return { start: 7, end: 20 };
+  return { start, end };
+}
+
 /** Booking counts by hour of day, non-declined only. */
-export function bookingsByHour(bookings: Booking[]): SeriesPoint[] {
+export function bookingsByHour(
+  bookings: Booking[],
+  range: HourRange = { start: 7, end: 20 }
+): SeriesPoint[] {
   const counts = new Array(24).fill(0);
   for (const b of bookings) {
     const s = normStatus(b);
@@ -240,8 +269,10 @@ export function bookingsByHour(bookings: Booking[]): SeriesPoint[] {
     const dt = bookingDateTime(b.Datum, b.Ura);
     if (dt) counts[dt.getHours()]++;
   }
+  const start = Math.max(0, Math.min(23, range.start));
+  const end = Math.max(start, Math.min(23, range.end));
   const points: SeriesPoint[] = [];
-  for (let h = 7; h <= 20; h++) {
+  for (let h = start; h <= end; h++) {
     points.push({ label: `${h}:00`, value: counts[h] });
   }
   return points;

@@ -20,6 +20,7 @@ import { AreaChart, BarChart, DonutChart } from "@/components/ui/charts";
 import {
   bookingsByHour,
   bookingsPerDay,
+  businessHourRange,
   computeDashboardStats,
   normStatus,
   type TrendStat,
@@ -121,7 +122,10 @@ export default function DashboardPage() {
     () => bookingsPerDay(bookings, range === "30" ? 30 : 90),
     [bookings, range]
   );
-  const hours = useMemo(() => bookingsByHour(bookings), [bookings]);
+  const hours = useMemo(
+    () => bookingsByHour(bookings, businessHourRange(settings.hours)),
+    [bookings, settings.hours]
+  );
   const activity = useMemo(() => getRecentActivity(bookings, 8), [bookings]);
 
   const todaysSchedule = useMemo(() => {
