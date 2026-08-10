@@ -27,6 +27,7 @@ export async function updateSalon(
       | "name"
       | "businessType"
       | "category"
+      | "country"
       | "email"
       | "phone"
       | "website"

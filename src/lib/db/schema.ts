@@ -179,6 +179,8 @@ export const salons = pgTable(
     businessType: text("business_type"),
     /** Coarse vertical — drives role labels across the app. */
     category: businessCategory("category").notNull().default("salon"),
+    /** ISO 3166-1 alpha-2, e.g. "SI" — drives public-holiday suggestions. */
+    country: text("country"),
     email: text("email"),
     phone: text("phone"),
     website: text("website"),

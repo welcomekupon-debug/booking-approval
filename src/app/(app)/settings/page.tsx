@@ -20,6 +20,7 @@ import {
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { TeamSection } from "@/components/settings/TeamSection";
+import { HolidaySuggestions } from "@/components/settings/HolidaySuggestions";
 import { BUSINESS_CATEGORY_LABELS, BUSINESS_CATEGORIES } from "@/lib/roleLabels";
 import {
   DAY_KEYS,
@@ -134,10 +135,18 @@ function SettingsContent() {
       ? (String(settings.slotGranularityMinutes) as "15" | "30" | "60")
       : "custom"
   );
+  const [countries, setCountries] = useState<{ code: string; name: string }[]>([]);
 
   useAutoDismiss(toast, () => setToast(null));
 
   useEffect(() => setForm(settings), [settings]);
+
+  useEffect(() => {
+    fetch("/api/meta/countries")
+      .then((res) => res.json())
+      .then((body) => setCountries(body.countries ?? []))
+      .catch(() => setCountries([]));
+  }, []);
   useEffect(() => {
     setGranularityMode(
       [15, 30, 60].includes(settings.slotGranularityMinutes)
@@ -286,6 +295,22 @@ function SettingsContent() {
                     {BUSINESS_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {BUSINESS_CATEGORY_LABELS[c]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field
+                  label="Country"
+                  hint="Used to suggest public holidays for your closures list."
+                >
+                  <Select
+                    value={form.country}
+                    onChange={(e) => patch({ country: e.target.value })}
+                  >
+                    <option value="">Not set</option>
+                    {countries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
                       </option>
                     ))}
                   </Select>
@@ -538,6 +563,16 @@ function SettingsContent() {
                     ))}
                   </div>
                 )}
+
+                <HolidaySuggestions
+                  country={form.country}
+                  existingHolidays={form.holidays}
+                  onAdd={(dates) =>
+                    patch({
+                      holidays: Array.from(new Set([...form.holidays, ...dates])),
+                    })
+                  }
+                />
               </SectionCard>
             </div>
           )}

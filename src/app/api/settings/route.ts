@@ -29,6 +29,13 @@ const legacySettings = z
     businessCategory: z
       .enum(BUSINESS_CATEGORIES as unknown as [string, ...string[]])
       .optional(),
+    country: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{2}$/)
+      .optional()
+      .or(z.literal("")),
     address: z.string().trim().max(500).optional(),
     phone: z.string().trim().max(40).optional(),
     email: z.string().trim().max(320).optional(),
@@ -93,6 +100,7 @@ export async function PUT(request: NextRequest) {
       ...(body.businessCategory !== undefined && {
         category: body.businessCategory as (typeof BUSINESS_CATEGORIES)[number],
       }),
+      ...(body.country !== undefined && { country: body.country || null }),
       ...(body.address !== undefined && { address: body.address }),
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.email !== undefined && { email: body.email }),

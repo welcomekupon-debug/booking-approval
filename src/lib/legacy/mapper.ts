@@ -166,6 +166,7 @@ export function mapSettings(
     businessName: salon.name,
     businessType: salon.businessType ?? "",
     businessCategory: salon.category,
+    country: salon.country ?? "",
     address: salon.address ?? "",
     phone: salon.phone ?? "",
     email: salon.email ?? "",

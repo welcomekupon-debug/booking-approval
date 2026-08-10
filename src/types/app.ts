@@ -63,6 +63,8 @@ export interface BusinessSettings {
   businessType: string;
   /** Coarse vertical — drives role labels (Stylist/Trainer/Provider/…) */
   businessCategory: string;
+  /** ISO 3166-1 alpha-2, e.g. "SI" — drives public-holiday suggestions. "" if unset. */
+  country: string;
   address: string;
   phone: string;
   email: string;
@@ -100,6 +102,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   businessName: "",
   businessType: "",
   businessCategory: "salon",
+  country: "",
   address: "",
   phone: "",
   email: "",

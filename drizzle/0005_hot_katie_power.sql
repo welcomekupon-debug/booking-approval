@@ -1,0 +1,1 @@
+ALTER TABLE "salons" ADD COLUMN "country" text;
