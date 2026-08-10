@@ -158,9 +158,15 @@ export function mapSettings(
   }
 
   const holidays = blocks
-    .filter((b) => b.staffId === null && b.reason === HOLIDAY_REASON)
-    .map((b) => b.startsAt.toISOString().slice(0, 10))
-    .sort();
+    .filter(
+      (b) => b.staffId === null && (b.reason === HOLIDAY_REASON || b.isPublicHoliday)
+    )
+    .map((b) => ({
+      date: b.startsAt.toISOString().slice(0, 10),
+      name: b.isPublicHoliday ? (b.reason ?? undefined) : undefined,
+      official: b.isPublicHoliday,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     businessName: salon.name,

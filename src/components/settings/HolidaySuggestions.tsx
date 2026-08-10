@@ -22,7 +22,7 @@ export function HolidaySuggestions({
 }: {
   country: string;
   existingHolidays: string[];
-  onAdd: (dates: string[]) => void;
+  onAdd: (entries: Suggestion[]) => void;
 }) {
   const thisYear = new Date().getFullYear();
   const [yearChoice, setYearChoice] = useState<"this" | "next">("this");
@@ -106,7 +106,7 @@ export function HolidaySuggestions({
             size="sm"
             icon="plus"
             className="mb-3"
-            onClick={() => onAdd(pending.map((h) => h.date))}
+            onClick={() => onAdd(pending)}
           >
             Add all {pending.length}
           </Button>
@@ -120,7 +120,7 @@ export function HolidaySuggestions({
                   {h.name}
                 </span>
                 <button
-                  onClick={() => onAdd([h.date])}
+                  onClick={() => onAdd([h])}
                   className="p-1.5 rounded-lg text-ink-300 hover:text-gold-600 hover:bg-gold-50 dark:hover:bg-gold-900/20 transition-colors"
                   aria-label={`Add ${h.name}`}
                 >

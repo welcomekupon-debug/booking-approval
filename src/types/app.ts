@@ -58,6 +58,15 @@ export interface DayHours {
   to: string; // "17:00"
 }
 
+export interface HolidayEntry {
+  /** ISO date, "YYYY-MM-DD" */
+  date: string;
+  /** Present for official public holidays; undefined for custom closures */
+  name?: string;
+  /** True = added from the public-holiday suggestions list */
+  official: boolean;
+}
+
 export interface BusinessSettings {
   businessName: string;
   businessType: string;
@@ -75,7 +84,7 @@ export interface BusinessSettings {
   /** IANA timezone, e.g. "Europe/Ljubljana" */
   timezone: string;
   hours: Record<string, DayHours>; // keys: mon..sun
-  holidays: string[]; // ISO dates
+  holidays: HolidayEntry[];
   defaultDuration: number; // minutes
   bufferMinutes: number;
   /** Grid the public booking page offers times on, e.g. every 15 or 30 min */

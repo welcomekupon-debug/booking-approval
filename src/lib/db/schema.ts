@@ -543,6 +543,10 @@ export const blockedTimes = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     reason: text("reason"),
+    /** True for holidays added from the public-holiday suggestions list —
+     *  kept separate from the salon's own custom closures so a "clear all"
+     *  on the custom list never wipes out national holidays. */
+    isPublicHoliday: boolean("is_public_holiday").notNull().default(false),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),

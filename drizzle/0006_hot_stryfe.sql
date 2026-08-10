@@ -1,0 +1,1 @@
+ALTER TABLE "blocked_times" ADD COLUMN "is_public_holiday" boolean DEFAULT false NOT NULL;

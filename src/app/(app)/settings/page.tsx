@@ -228,8 +228,18 @@ function SettingsContent() {
     </Button>
   );
 
-  const holidays = useMemo(
-    () => [...form.holidays].sort(),
+  const officialHolidays = useMemo(
+    () =>
+      form.holidays
+        .filter((h) => h.official)
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [form.holidays]
+  );
+  const customHolidays = useMemo(
+    () =>
+      form.holidays
+        .filter((h) => !h.official)
+        .sort((a, b) => a.date.localeCompare(b.date)),
     [form.holidays]
   );
 
@@ -527,9 +537,11 @@ function SettingsContent() {
                     disabled={!holidayFrom || (!!holidayTo && holidayTo < holidayFrom)}
                     onClick={() => {
                       const range = isoDateRange(holidayFrom, holidayTo || holidayFrom);
-                      patch({
-                        holidays: Array.from(new Set([...form.holidays, ...range])),
-                      });
+                      const existingDates = new Set(form.holidays.map((h) => h.date));
+                      const additions = range
+                        .filter((d) => !existingDates.has(d))
+                        .map((d) => ({ date: d, official: false }));
+                      patch({ holidays: [...form.holidays, ...additions] });
                       setHolidayFrom("");
                       setHolidayTo("");
                     }}
@@ -537,26 +549,76 @@ function SettingsContent() {
                     Add
                   </Button>
                 </div>
-                <p className="text-[11px] text-ink-400 mb-4">
+                <p className="text-[11px] text-ink-400 mb-5">
                   Leave &ldquo;To&rdquo; empty for a single day, or set both to close a
                   whole range — e.g. 24.7. to 28.7.
                 </p>
-                {holidays.length === 0 ? (
-                  <p className="text-sm text-ink-400">No holidays added yet.</p>
+
+                <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600 mb-2">
+                  National holidays
+                </p>
+                {officialHolidays.length === 0 ? (
+                  <p className="text-sm text-ink-400 mb-5">
+                    None added — see suggestions below.
+                  </p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {holidays.map((h) => (
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {officialHolidays.map((h) => (
                       <span
-                        key={h}
-                        className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-ink-200 dark:border-ink-700 text-xs font-semibold text-ink-600 dark:text-ink-300"
+                        key={h.date}
+                        className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-gold-200 dark:border-gold-800 bg-gold-50/50 dark:bg-gold-900/10 text-xs font-semibold text-gold-800 dark:text-gold-300"
                       >
-                        {isoToDisplayDate(h)}
+                        {isoToDisplayDate(h.date)}
+                        {h.name ? ` · ${h.name}` : ""}
                         <button
                           onClick={() =>
-                            patch({ holidays: form.holidays.filter((x) => x !== h) })
+                            patch({
+                              holidays: form.holidays.filter((x) => x.date !== h.date),
+                            })
+                          }
+                          className="p-0.5 rounded-full text-gold-400 hover:text-rose-500 transition-colors"
+                          aria-label={`Remove ${h.name ?? isoToDisplayDate(h.date)}`}
+                        >
+                          <Icon name="x" className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600">
+                    Your closures
+                  </p>
+                  {customHolidays.length > 0 && (
+                    <button
+                      onClick={() =>
+                        patch({ holidays: form.holidays.filter((h) => h.official) })
+                      }
+                      className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                {customHolidays.length === 0 ? (
+                  <p className="text-sm text-ink-400">No closures added yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {customHolidays.map((h) => (
+                      <span
+                        key={h.date}
+                        className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-ink-200 dark:border-ink-700 text-xs font-semibold text-ink-600 dark:text-ink-300"
+                      >
+                        {isoToDisplayDate(h.date)}
+                        <button
+                          onClick={() =>
+                            patch({
+                              holidays: form.holidays.filter((x) => x.date !== h.date),
+                            })
                           }
                           className="p-0.5 rounded-full text-ink-300 hover:text-rose-500 transition-colors"
-                          aria-label={`Remove ${h}`}
+                          aria-label={`Remove ${isoToDisplayDate(h.date)}`}
                         >
                           <Icon name="x" className="w-3 h-3" />
                         </button>
@@ -567,12 +629,14 @@ function SettingsContent() {
 
                 <HolidaySuggestions
                   country={form.country}
-                  existingHolidays={form.holidays}
-                  onAdd={(dates) =>
-                    patch({
-                      holidays: Array.from(new Set([...form.holidays, ...dates])),
-                    })
-                  }
+                  existingHolidays={form.holidays.map((h) => h.date)}
+                  onAdd={(entries) => {
+                    const existingDates = new Set(form.holidays.map((h) => h.date));
+                    const additions = entries
+                      .filter((e) => !existingDates.has(e.date))
+                      .map((e) => ({ date: e.date, name: e.name, official: true }));
+                    patch({ holidays: [...form.holidays, ...additions] });
+                  }}
                 />
               </SectionCard>
             </div>

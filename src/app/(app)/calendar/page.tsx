@@ -210,14 +210,28 @@ export default function CalendarPage() {
 
   const activeStaff = useMemo(() => staff.filter((s) => s.active), [staff]);
 
-  const holidaySet = useMemo(() => new Set(settings.holidays), [settings.holidays]);
+  const holidayByDate = useMemo(
+    () => new Map(settings.holidays.map((h) => [h.date, h])),
+    [settings.holidays]
+  );
 
   async function toggleClosure(day: Date) {
     const iso = toIsoDate(day);
-    const isClosed = holidaySet.has(iso);
-    const nextHolidays = isClosed
-      ? settings.holidays.filter((h) => h !== iso)
-      : [...settings.holidays, iso];
+    const isClosed = holidayByDate.has(iso);
+    let nextHolidays;
+    if (isClosed) {
+      nextHolidays = settings.holidays.filter((h) => h.date !== iso);
+    } else {
+      // If this happens to be a known public holiday, tag it as official so
+      // it lands in "National holidays" rather than "Your closures".
+      const knownName = holidayPreview.get(iso);
+      nextHolidays = [
+        ...settings.holidays,
+        knownName
+          ? { date: iso, name: knownName, official: true }
+          : { date: iso, official: false },
+      ];
+    }
 
     setClosingDay(iso);
     try {
@@ -526,8 +540,9 @@ export default function CalendarPage() {
               const isToday = isSameDay(day, now);
               const key = `m-${day.toDateString()}`;
               const iso = toIsoDate(day);
-              const isClosed = holidaySet.has(iso);
-              const previewName = !isClosed ? holidayPreview.get(iso) : undefined;
+              const holidayEntry = holidayByDate.get(iso);
+              const isClosed = !!holidayEntry;
+              const holidayName = holidayEntry?.name ?? holidayPreview.get(iso);
               return (
                 <div
                   key={key}
@@ -577,19 +592,26 @@ export default function CalendarPage() {
                   >
                     {day.getDate()}
                   </span>
-                  {isClosed ? (
-                    <span className="block text-[9px] font-bold uppercase tracking-wide text-rose-500 mb-1">
+                  {isClosed && (
+                    <span
+                      className={`block text-[9px] font-bold uppercase tracking-wide text-rose-500 ${
+                        holidayName ? "" : "mb-1"
+                      }`}
+                    >
                       Closed
                     </span>
-                  ) : (
-                    previewName && (
-                      <span
-                        className="block text-[9px] font-semibold text-gold-600 dark:text-gold-400 truncate mb-1"
-                        title={previewName}
-                      >
-                        {previewName}
-                      </span>
-                    )
+                  )}
+                  {holidayName && (
+                    <span
+                      className={`block text-[9px] font-semibold truncate mb-1 ${
+                        isClosed
+                          ? "text-rose-400 dark:text-rose-300/80"
+                          : "text-gold-600 dark:text-gold-400"
+                      }`}
+                      title={holidayName}
+                    >
+                      {holidayName}
+                    </span>
                   )}
                   <div className="flex flex-col gap-1">
                     {events.slice(0, 3).map((b) => (

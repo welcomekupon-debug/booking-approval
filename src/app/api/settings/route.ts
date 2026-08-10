@@ -45,7 +45,15 @@ const legacySettings = z
     currency: z.string().trim().length(3).optional(),
     timezone: z.string().trim().max(64).optional(),
     hours: z.record(z.string(), dayHours).optional(),
-    holidays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
+    holidays: z
+      .array(
+        z.strictObject({
+          date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          name: z.string().trim().max(200).optional(),
+          official: z.boolean(),
+        })
+      )
+      .optional(),
     defaultDuration: z.coerce.number().int().min(5).max(600).optional(),
     bufferMinutes: z.coerce.number().int().min(0).max(240).optional(),
     slotGranularityMinutes: z.coerce.number().int().min(5).max(120).optional(),
@@ -175,27 +183,30 @@ export async function PUT(request: NextRequest) {
     }
 
     // ── Holidays → salon-wide all-day blocked times ──────────────────────
+    // National holidays (official: true) and the salon's own closures share
+    // the same blocked_times mechanism, distinguished by isPublicHoliday —
+    // that's what lets "clear my closures" leave national holidays alone.
     if (body.holidays) {
       const existing = (await listBlockedTimes(salonId)).filter(
-        (b) => b.staffId === null && b.reason === HOLIDAY_REASON
+        (b) => b.staffId === null && (b.reason === HOLIDAY_REASON || b.isPublicHoliday)
       );
-      const existingDates = new Map(
+      const existingByDate = new Map(
         existing.map((b) => [b.startsAt.toISOString().slice(0, 10), b])
       );
-      const wanted = new Set(body.holidays);
+      const wanted = new Map(body.holidays.map((h) => [h.date, h]));
 
-      for (const iso of Array.from(wanted)) {
-        if (!existingDates.has(iso)) {
-          await createBlockedTime({
-            salonId,
-            staffId: null,
-            startsAt: localDateTimeToUtc(iso, "00:00", tz),
-            endsAt: localDateTimeToUtc(iso, "23:59", tz),
-            reason: HOLIDAY_REASON,
-          });
-        }
+      for (const [iso, h] of Array.from(wanted.entries())) {
+        if (existingByDate.has(iso)) continue;
+        await createBlockedTime({
+          salonId,
+          staffId: null,
+          startsAt: localDateTimeToUtc(iso, "00:00", tz),
+          endsAt: localDateTimeToUtc(iso, "23:59", tz),
+          reason: h.official && h.name ? h.name : HOLIDAY_REASON,
+          isPublicHoliday: h.official,
+        });
       }
-      for (const [iso, block] of Array.from(existingDates.entries())) {
+      for (const [iso, block] of Array.from(existingByDate.entries())) {
         if (!wanted.has(iso)) await deleteBlockedTime(salonId, block.id);
       }
     }
