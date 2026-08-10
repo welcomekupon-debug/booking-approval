@@ -56,8 +56,16 @@ export async function fetchPublicHolidays(
       date: string;
       name: string;
       localName: string;
+      types?: string[];
     }[];
     return rows
+      // Skip anything that's *only* an observance (e.g. "Valentine's Day") —
+      // not an actual day businesses expect to close for. Keep it if it's
+      // also tagged Public/Bank/etc alongside Observance.
+      .filter((r) => {
+        const types = r.types ?? [];
+        return types.length === 0 || !types.every((t) => t === "Observance");
+      })
       .map((r) => ({ date: r.date, name: r.localName || r.name }))
       .sort((a, b) => a.date.localeCompare(b.date));
   } catch (err) {

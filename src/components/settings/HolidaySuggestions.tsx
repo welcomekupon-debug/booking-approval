@@ -73,7 +73,7 @@ export function HolidaySuggestions({
 
   return (
     <div className="mt-5 pt-5 border-t border-ink-100 dark:border-ink-800">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-3">
         <p className="text-sm font-bold text-ink-800 dark:text-ink-100">
           Suggested public holidays
         </p>
@@ -86,10 +86,6 @@ export function HolidaySuggestions({
           onChange={setYearChoice}
         />
       </div>
-      <p className="text-[11px] text-ink-400 mb-3">
-        Nothing here closes your business automatically — add the ones that
-        actually apply to you.
-      </p>
 
       {loading ? (
         <p className="text-sm text-ink-400">Loading…</p>

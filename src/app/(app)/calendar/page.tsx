@@ -9,7 +9,13 @@
  * endpoint and reconcile by Bookingid without any UI changes.
  */
 
-import { useMemo, useState, type CSSProperties, type DragEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+} from "react";
 import { useWorkspace } from "@/components/providers/WorkspaceProvider";
 import { PageHeader } from "@/components/PageHeader";
 import { AppointmentDrawer } from "@/components/appointments/AppointmentDrawer";
@@ -143,8 +149,44 @@ export default function CalendarPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [closingDay, setClosingDay] = useState<string | null>(null);
+  const [holidayPreview, setHolidayPreview] = useState<Map<string, string>>(
+    new Map()
+  );
 
   useAutoDismiss(toast, () => setToast(null));
+
+  // Public-holiday name previews for month view — informational only, never
+  // written anywhere. Pulls the cursor's year plus its neighbours so the
+  // leading/trailing days of the 6-week grid (which can spill into an
+  // adjacent year in Dec/Jan) are covered too.
+  useEffect(() => {
+    if (view !== "month" || !settings.country) {
+      setHolidayPreview(new Map());
+      return;
+    }
+    const year = cursor.getFullYear();
+    const years = Array.from(new Set([year - 1, year, year + 1]));
+    let cancelled = false;
+
+    Promise.all(
+      years.map((y) =>
+        fetch(`/api/holidays/suggestions?year=${y}&country=${settings.country}`)
+          .then((res) => res.json())
+          .catch(() => ({ holidays: [] as { date: string; name: string }[] }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const map = new Map<string, string>();
+      for (const r of results) {
+        for (const h of r.holidays ?? []) map.set(h.date, h.name);
+      }
+      setHolidayPreview(map);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, cursor.getFullYear(), settings.country]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -485,6 +527,7 @@ export default function CalendarPage() {
               const key = `m-${day.toDateString()}`;
               const iso = toIsoDate(day);
               const isClosed = holidaySet.has(iso);
+              const previewName = !isClosed ? holidayPreview.get(iso) : undefined;
               return (
                 <div
                   key={key}
@@ -534,10 +577,19 @@ export default function CalendarPage() {
                   >
                     {day.getDate()}
                   </span>
-                  {isClosed && (
+                  {isClosed ? (
                     <span className="block text-[9px] font-bold uppercase tracking-wide text-rose-500 mb-1">
                       Closed
                     </span>
+                  ) : (
+                    previewName && (
+                      <span
+                        className="block text-[9px] font-semibold text-gold-600 dark:text-gold-400 truncate mb-1"
+                        title={previewName}
+                      >
+                        {previewName}
+                      </span>
+                    )
                   )}
                   <div className="flex flex-col gap-1">
                     {events.slice(0, 3).map((b) => (

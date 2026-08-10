@@ -28,6 +28,7 @@ import {
   type Service,
   type StaffMember,
 } from "@/types/app";
+import { isoToDisplayDate } from "@/lib/dates";
 
 type Tab =
   | "business"
@@ -549,7 +550,7 @@ function SettingsContent() {
                         key={h}
                         className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full border border-ink-200 dark:border-ink-700 text-xs font-semibold text-ink-600 dark:text-ink-300"
                       >
-                        {h}
+                        {isoToDisplayDate(h)}
                         <button
                           onClick={() =>
                             patch({ holidays: form.holidays.filter((x) => x !== h) })

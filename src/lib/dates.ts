@@ -86,6 +86,12 @@ export function toIsoDate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/** "YYYY-MM-DD" → "DD.MM.YYYY" for display. Passthrough if unparseable. */
+export function isoToDisplayDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+}
+
 /** "Wed, 8 Jul" style short label */
 export function shortDate(d: Date): string {
   return d.toLocaleDateString("en-GB", {
