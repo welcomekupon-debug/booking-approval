@@ -26,6 +26,8 @@ export interface Booking {
   Notes: string;
   Price: string; // decimal string in salon currency ("45")
   Staff: string;
+  /** Catalog id of the assigned staff member — used for calendar filtering. "" if unassigned. */
+  StaffId: string;
 }
 
 export interface ActivityItem {

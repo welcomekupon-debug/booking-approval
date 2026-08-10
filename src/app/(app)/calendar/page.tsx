@@ -19,6 +19,7 @@ import {
   EmptyState,
   Input,
   Segmented,
+  Select,
   Skeleton,
   Toast,
   useAutoDismiss,
@@ -34,6 +35,7 @@ import {
   shortDate,
   startOfDay,
   startOfWeek,
+  toIsoDate,
   toSheetDate,
 } from "@/lib/dates";
 import { normStatus } from "@/lib/stats";
@@ -111,8 +113,17 @@ interface DropPayload {
 }
 
 export default function CalendarPage() {
-  const { bookings, services, settings, loading, error, refresh, updateBooking } =
-    useWorkspace();
+  const {
+    bookings,
+    services,
+    staff,
+    settings,
+    loading,
+    error,
+    refresh,
+    updateBooking,
+    saveSettings,
+  } = useWorkspace();
 
   const serviceColorById = useMemo(() => {
     const map: Record<string, string> = {};
@@ -125,11 +136,13 @@ export default function CalendarPage() {
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [query, setQuery] = useState("");
+  const [staffFilter, setStaffFilter] = useState<string>("all");
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [dragRow, setDragRow] = useState<string | null>(null);
   const [dropKey, setDropKey] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [closingDay, setClosingDay] = useState<string | null>(null);
 
   useAutoDismiss(toast, () => setToast(null));
 
@@ -144,13 +157,38 @@ export default function CalendarPage() {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return bookings;
-    return bookings.filter((b) =>
-      `${b.Ime} ${b.Gmail} ${b.Service} ${b.Staff} ${b.Notes}`
+    return bookings.filter((b) => {
+      if (staffFilter !== "all" && b.StaffId !== staffFilter) return false;
+      if (!q) return true;
+      return `${b.Ime} ${b.Gmail} ${b.Service} ${b.Staff} ${b.Notes}`
         .toLowerCase()
-        .includes(q)
-    );
-  }, [bookings, query]);
+        .includes(q);
+    });
+  }, [bookings, query, staffFilter]);
+
+  const activeStaff = useMemo(() => staff.filter((s) => s.active), [staff]);
+
+  const holidaySet = useMemo(() => new Set(settings.holidays), [settings.holidays]);
+
+  async function toggleClosure(day: Date) {
+    const iso = toIsoDate(day);
+    const isClosed = holidaySet.has(iso);
+    const nextHolidays = isClosed
+      ? settings.holidays.filter((h) => h !== iso)
+      : [...settings.holidays, iso];
+
+    setClosingDay(iso);
+    try {
+      await saveSettings({ holidays: nextHolidays });
+      setToast(
+        isClosed ? `Reopened ${shortDate(day)}` : `Marked ${shortDate(day)} as closed`
+      );
+    } catch {
+      setToast("Couldn't update — please try again");
+    } finally {
+      setClosingDay(null);
+    }
+  }
 
   const eventsOn = useMemo(() => {
     return (day: Date) =>
@@ -445,12 +483,16 @@ export default function CalendarPage() {
               const inMonth = day.getMonth() === cursor.getMonth();
               const isToday = isSameDay(day, now);
               const key = `m-${day.toDateString()}`;
+              const iso = toIsoDate(day);
+              const isClosed = holidaySet.has(iso);
               return (
                 <div
                   key={key}
-                  className={`min-h-[108px] p-1.5 border-r border-ink-100 dark:border-ink-800 last:border-r-0 transition-colors ${
+                  className={`group relative min-h-[108px] p-1.5 border-r border-ink-100 dark:border-ink-800 last:border-r-0 transition-colors ${
                     inMonth ? "" : "bg-ink-50/50 dark:bg-ink-800/20"
-                  } ${dropKey === key ? "drop-target" : ""}`}
+                  } ${isClosed ? "bg-rose-50/40 dark:bg-rose-900/10" : ""} ${
+                    dropKey === key ? "drop-target" : ""
+                  }`}
                   onDragOver={(e) => allowDrop(e, key)}
                   onDragLeave={() => setDropKey((k) => (k === key ? null : k))}
                   onDrop={(e) => {
@@ -462,17 +504,41 @@ export default function CalendarPage() {
                     setView("day");
                   }}
                 >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleClosure(day);
+                    }}
+                    disabled={closingDay === iso}
+                    title={isClosed ? `Reopen ${shortDate(day)}` : `Mark ${shortDate(day)} as closed`}
+                    aria-label={isClosed ? `Reopen ${shortDate(day)}` : `Mark ${shortDate(day)} as closed`}
+                    className={`absolute top-1 right-1 p-1 rounded-lg transition-opacity disabled:opacity-50 ${
+                      isClosed
+                        ? "opacity-100 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30"
+                        : "opacity-0 group-hover:opacity-100 text-ink-300 hover:text-ink-600 hover:bg-ink-100 dark:hover:bg-ink-800"
+                    }`}
+                  >
+                    <Icon name="building" className="w-3 h-3" />
+                  </button>
+
                   <span
                     className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mb-1 ${
                       isToday
                         ? "bg-gold-500 text-white"
-                        : inMonth
-                          ? "text-ink-700 dark:text-ink-200"
-                          : "text-ink-300 dark:text-ink-600"
+                        : isClosed
+                          ? "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300"
+                          : inMonth
+                            ? "text-ink-700 dark:text-ink-200"
+                            : "text-ink-300 dark:text-ink-600"
                     }`}
                   >
                     {day.getDate()}
                   </span>
+                  {isClosed && (
+                    <span className="block text-[9px] font-bold uppercase tracking-wide text-rose-500 mb-1">
+                      Closed
+                    </span>
+                  )}
                   <div className="flex flex-col gap-1">
                     {events.slice(0, 3).map((b) => (
                       <EventChip key={b.id} b={b} />
@@ -559,6 +625,21 @@ export default function CalendarPage() {
         <h2 className="text-sm font-bold text-ink-900 dark:text-ink-50 min-w-[160px]">
           {rangeLabel}
         </h2>
+
+        {activeStaff.length > 0 && (
+          <Select
+            value={staffFilter}
+            onChange={(e) => setStaffFilter(e.target.value)}
+            className="w-auto max-w-[160px] py-2 text-xs"
+          >
+            <option value="all">All staff</option>
+            {activeStaff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
           <Icon

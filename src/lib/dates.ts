@@ -74,6 +74,18 @@ export function toSheetDate(d: Date): string {
   return `${dd}.${mm}.${d.getFullYear()}`;
 }
 
+/**
+ * Local calendar date → "YYYY-MM-DD", matching how `settings.holidays` is
+ * stored. Deliberately NOT `toISOString()`, which converts to UTC and can
+ * shift the date by a day depending on the browser's timezone offset.
+ */
+export function toIsoDate(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /** "Wed, 8 Jul" style short label */
 export function shortDate(d: Date): string {
   return d.toLocaleDateString("en-GB", {

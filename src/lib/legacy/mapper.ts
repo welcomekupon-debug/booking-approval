@@ -96,6 +96,7 @@ export function mapAppointment(
     Notes: a.internalNote ?? "",
     Price: centsToDecimal(a.priceTotalCents),
     Staff: a.staff?.name ?? "",
+    StaffId: a.staffId ?? "",
   };
 }
 
