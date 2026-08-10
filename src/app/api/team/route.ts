@@ -2,6 +2,7 @@ import { handleRoute } from "@/lib/api";
 import { requireTenant } from "@/lib/auth/context";
 import { listTeam } from "@/lib/services/team";
 import { roleLabelsFor } from "@/lib/roleLabels";
+import { appBaseUrl } from "@/lib/services/manageToken";
 
 /** GET /api/team — members + outstanding invites for the current salon. */
 export async function GET() {
@@ -29,6 +30,10 @@ export async function GET() {
         status: i.status,
         createdAt: i.createdAt.toISOString(),
         expiresAt: i.expiresAt.toISOString(),
+        // Only useful while still pending, but harmless either way — lets
+        // the owner copy/share the link directly if the invite email never
+        // arrives (e.g. n8n isn't wired up for this event yet).
+        acceptUrl: `${appBaseUrl()}/invite/${i.token}`,
       })),
     };
   });

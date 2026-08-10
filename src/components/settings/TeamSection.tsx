@@ -30,6 +30,7 @@ interface InviteRow {
   status: "pending" | "accepted" | "revoked" | "expired";
   createdAt: string;
   expiresAt: string;
+  acceptUrl: string;
 }
 
 interface TeamResponse {
@@ -59,6 +60,8 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [freshInviteUrl, setFreshInviteUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -93,11 +96,22 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Couldn't send the invite.");
       setInviteEmail("");
+      setFreshInviteUrl(body.acceptUrl ?? null);
       await load();
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : "Couldn't send the invite.");
     } finally {
       setInviting(false);
+    }
+  }
+
+  async function copyLink(url: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 2000);
+    } catch {
+      /* clipboard unavailable */
     }
   }
 
@@ -265,6 +279,35 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
           </div>
           {inviteError && <p className="text-xs text-rose-600 mt-2">{inviteError}</p>}
 
+          {freshInviteUrl && (
+            <div className="mt-4 rounded-xl border border-gold-200 dark:border-gold-800 bg-gold-50/50 dark:bg-gold-900/10 p-4">
+              <p className="text-xs font-bold text-ink-700 dark:text-ink-200 mb-2">
+                Invite sent. If the email doesn&apos;t arrive, share this link directly —
+                it works the same either way.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 min-w-0 truncate text-xs font-mono bg-white dark:bg-ink-900 border border-gold-200 dark:border-gold-800 rounded-lg px-3 py-2">
+                  {freshInviteUrl}
+                </code>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={copiedId === "fresh" ? "check" : "note"}
+                  onClick={() => copyLink(freshInviteUrl, "fresh")}
+                >
+                  {copiedId === "fresh" ? "Copied" : "Copy"}
+                </Button>
+                <button
+                  onClick={() => setFreshInviteUrl(null)}
+                  className="p-1.5 text-ink-400 hover:text-ink-700 dark:hover:text-ink-200 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <Icon name="x" className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {data && data.invitations.length > 0 && (
             <div className="mt-5 flex flex-col divide-y divide-ink-50 dark:divide-ink-800">
               <p className="text-[10px] font-bold uppercase tracking-widest text-ink-300 dark:text-ink-600 pb-2">
@@ -293,14 +336,23 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
                     {inv.status === "pending" ? "Pending" : inv.status === "expired" ? "Expired" : "Revoked"}
                   </Badge>
                   {inv.status === "pending" && (
-                    <button
-                      onClick={() => revokeInvite(inv.id)}
-                      disabled={busyId === inv.id}
-                      className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                      aria-label={`Revoke invite to ${inv.email}`}
-                    >
-                      <Icon name="x" className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => copyLink(inv.acceptUrl, inv.id)}
+                        className="p-2 rounded-xl text-ink-300 hover:text-gold-600 hover:bg-gold-50 dark:hover:bg-gold-900/20 transition-colors"
+                        aria-label={`Copy invite link for ${inv.email}`}
+                      >
+                        <Icon name={copiedId === inv.id ? "check" : "note"} className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => revokeInvite(inv.id)}
+                        disabled={busyId === inv.id}
+                        className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                        aria-label={`Revoke invite to ${inv.email}`}
+                      >
+                        <Icon name="x" className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               ))}
