@@ -20,12 +20,17 @@ import { ApiError } from "@/lib/errors";
 
 export interface TenantContext {
   user: User;
-  membership: Membership;
+  /** Null while impersonating — there is no real membership row in play. */
+  membership: Membership | null;
   salon: Salon;
   role: MembershipRole;
+  /** True when a platform admin is viewing this salon via impersonation. */
+  impersonating: boolean;
 }
 
 const ACTIVE_SALON_COOKIE = "active_salon_id";
+/** Platform-admin-only. Set/cleared by /api/admin/impersonate. */
+const IMPERSONATE_SALON_COOKIE = "impersonate_salon_id";
 
 /** Find-or-create the local user row for the signed-in Clerk account. */
 export async function getOrCreateUser(): Promise<User | null> {
@@ -123,6 +128,31 @@ export async function getTenantContext(): Promise<
   const user = await getOrCreateUser();
   if (!user) throw ApiError.unauthorized();
 
+  // Impersonation short-circuits normal membership resolution entirely —
+  // a platform admin doesn't need (and shouldn't get) a membership row on
+  // the client's salon just to help them set it up.
+  if (user.isPlatformAdmin) {
+    const cookieStore = await cookies();
+    const impersonateId = cookieStore.get(IMPERSONATE_SALON_COOKIE)?.value;
+    if (impersonateId) {
+      const salon = await db.query.salons.findFirst({
+        where: eq(salons.id, impersonateId),
+      });
+      if (salon && salon.deletedAt === null) {
+        return {
+          user,
+          ctx: {
+            user,
+            membership: null,
+            salon,
+            role: "owner",
+            impersonating: true,
+          },
+        };
+      }
+    }
+  }
+
   const all = await getUserMemberships(user.id);
   if (all.length === 0) return { user, ctx: null };
 
@@ -139,6 +169,7 @@ export async function getTenantContext(): Promise<
       membership: match.membership,
       salon: match.salon,
       role: match.membership.role,
+      impersonating: false,
     },
   };
 }
@@ -173,4 +204,16 @@ export function requireRole(
   }
 }
 
-export { ACTIVE_SALON_COOKIE };
+export { ROLE_RANK };
+
+/** Signed-in user, 403 unless they carry the platform-admin flag. */
+export async function requirePlatformAdmin(): Promise<User> {
+  const user = await getOrCreateUser();
+  if (!user) throw ApiError.unauthorized();
+  if (!user.isPlatformAdmin) {
+    throw ApiError.forbidden("Platform admin access required.");
+  }
+  return user;
+}
+
+export { ACTIVE_SALON_COOKIE, IMPERSONATE_SALON_COOKIE };

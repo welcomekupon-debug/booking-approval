@@ -19,6 +19,8 @@ import {
 } from "@/components/ui";
 import { Icon, type IconName } from "@/components/ui/icons";
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
+import { TeamSection } from "@/components/settings/TeamSection";
+import { BUSINESS_CATEGORY_LABELS, BUSINESS_CATEGORIES } from "@/lib/roleLabels";
 import {
   DAY_KEYS,
   type BusinessSettings,
@@ -34,6 +36,7 @@ type Tab =
   | "services"
   | "booking"
   | "integrations"
+  | "team"
   | "notifications"
   | "security"
   | "billing";
@@ -46,6 +49,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: "services", label: "Services", icon: "tag" },
   { id: "booking", label: "Booking preferences", icon: "calendar" },
   { id: "integrations", label: "Online booking & API", icon: "send" },
+  { id: "team", label: "Team & permissions", icon: "shield" },
   { id: "notifications", label: "Notifications", icon: "bell" },
   { id: "security", label: "Security", icon: "shield" },
   { id: "billing", label: "Subscription & billing", icon: "card" },
@@ -265,11 +269,26 @@ function SettingsContent() {
                     />
                   </Field>
                 </div>
-                <Field label="Business type">
+                <Field label="Business type" hint='Shown to customers, e.g. "Hair salon".'>
                   <Input
                     value={form.businessType}
                     onChange={(e) => patch({ businessType: e.target.value })}
                   />
+                </Field>
+                <Field
+                  label="Business category"
+                  hint="Personalizes role names across the app — e.g. Stylist vs Trainer vs Provider."
+                >
+                  <Select
+                    value={form.businessCategory}
+                    onChange={(e) => patch({ businessCategory: e.target.value })}
+                  >
+                    {BUSINESS_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {BUSINESS_CATEGORY_LABELS[c]}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
                 <Field label="Phone">
                   <Input
@@ -796,6 +815,8 @@ function SettingsContent() {
           )}
 
           {tab === "integrations" && <IntegrationsSection />}
+
+          {tab === "team" && <TeamSection businessCategory={form.businessCategory} />}
 
           {tab === "notifications" && (
             <SectionCard

@@ -47,6 +47,9 @@ interface WorkspaceContextValue {
   notifications: AppNotification[];
   unreadCount: number;
   changeRequests: ChangeRequestItem[];
+  isPlatformAdmin: boolean;
+  impersonating: boolean;
+  stopImpersonating: () => Promise<void>;
   refresh: () => Promise<void>;
   updateBooking: (id: string, fields: BookingUpdatePayload) => Promise<void>;
   createAppointment: (input: CreateAppointmentInput) => Promise<void>;
@@ -319,6 +322,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [data, notifications]);
 
+  const stopImpersonating = useCallback(async () => {
+    await fetch("/api/admin/impersonate", { method: "DELETE" });
+    await refresh();
+  }, [refresh]);
+
   const resolveChangeRequest = useCallback(
     async (id: string, action: "approve" | "decline") => {
       const res = await fetch(`/api/change-requests/${id}`, {
@@ -348,6 +356,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     notifications,
     unreadCount,
     changeRequests: data?.changeRequests ?? [],
+    isPlatformAdmin: data?.isPlatformAdmin ?? false,
+    impersonating: data?.impersonating ?? false,
+    stopImpersonating,
     refresh,
     updateBooking,
     createAppointment,

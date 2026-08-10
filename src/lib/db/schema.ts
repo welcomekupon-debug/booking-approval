@@ -101,6 +101,27 @@ export const auditActorType = pgEnum("audit_actor_type", [
   "system",
 ]);
 
+/**
+ * Coarse vertical the salon operates in. Purely presentational — drives role
+ * labels (e.g. "Stylist" vs "Trainer" vs "Provider") via `lib/roleLabels.ts`.
+ * The underlying `membership_role` values stay stable across every category
+ * so no migration is needed when a new category is added.
+ */
+export const businessCategory = pgEnum("business_category", [
+  "salon",
+  "fitness",
+  "medical",
+  "consulting",
+  "other",
+]);
+
+export const invitationStatus = pgEnum("invitation_status", [
+  "pending",
+  "accepted",
+  "revoked",
+  "expired",
+]);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared column helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +152,12 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name"),
     imageUrl: text("image_url"),
+    /**
+     * Cross-tenant support access — not a membership role. Lets the platform
+     * operator open any salon (impersonation) to help with setup without
+     * being added as a member of every client account.
+     */
+    isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -148,7 +175,10 @@ export const salons = pgTable(
     name: text("name").notNull(),
     /** Public booking URL: /book/{slug} */
     slug: text("slug").notNull(),
+    /** Free-text label shown to customers, e.g. "Hair salon", "Yoga studio" */
     businessType: text("business_type"),
+    /** Coarse vertical — drives role labels across the app. */
+    category: businessCategory("category").notNull().default("salon"),
     email: text("email"),
     phone: text("phone"),
     website: text("website"),
@@ -191,6 +221,44 @@ export const memberships = pgTable(
   (t) => [
     uniqueIndex("memberships_user_salon_idx").on(t.userId, t.salonId),
     index("memberships_salon_idx").on(t.salonId),
+  ]
+);
+
+/**
+ * Outstanding invite to join a salon with a given role. Claimed via a random
+ * token (the accept link), not by email matching alone — an invitee still
+ * has to hold the link. `getOrCreateUser` never auto-claims these; claiming
+ * always goes through `POST /api/invite/[token]/accept`.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    id: id(),
+    salonId: uuid("salon_id")
+      .notNull()
+      .references(() => salons.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: membershipRole("role").notNull().default("stylist"),
+    token: text("token").notNull(),
+    status: invitationStatus("status").notNull().default("pending"),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("invitations_token_idx").on(t.token),
+    index("invitations_salon_idx").on(t.salonId, t.status),
+    // One live invite per email per salon — re-inviting revokes the old row.
+    uniqueIndex("invitations_salon_email_pending_idx")
+      .on(t.salonId, t.email)
+      .where(sql`${t.status} = 'pending'`),
   ]
 );
 
@@ -718,6 +786,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 
 export const salonsRelations = relations(salons, ({ many, one }) => ({
   memberships: many(memberships),
+  invitations: many(invitations),
   staff: many(staff),
   services: many(services),
   customers: many(customers),
@@ -733,6 +802,18 @@ export const membershipsRelations = relations(memberships, ({ one }) => ({
   user: one(users, { fields: [memberships.userId], references: [users.id] }),
   salon: one(salons, { fields: [memberships.salonId], references: [salons.id] }),
   staff: one(staff, { fields: [memberships.staffId], references: [staff.id] }),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  salon: one(salons, { fields: [invitations.salonId], references: [salons.id] }),
+  invitedBy: one(users, {
+    fields: [invitations.invitedByUserId],
+    references: [users.id],
+  }),
+  acceptedBy: one(users, {
+    fields: [invitations.acceptedByUserId],
+    references: [users.id],
+  }),
 }));
 
 export const staffRelations = relations(staff, ({ one, many }) => ({
@@ -848,6 +929,10 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.appointmentId],
     references: [appointments.id],
   }),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  salon: one(salons, { fields: [apiKeys.salonId], references: [salons.id] }),
 }));
 
 export const calendarIntegrationsRelations = relations(

@@ -25,7 +25,7 @@ import { DEFAULT_SETTINGS } from "@/types/app";
  */
 export async function GET() {
   return handleRoute(async () => {
-    const { ctx } = await getTenantContext();
+    const { user, ctx } = await getTenantContext();
 
     if (!ctx) {
       return {
@@ -38,6 +38,8 @@ export async function GET() {
         notifications: [],
         changeRequests: [],
         settings: { ...DEFAULT_SETTINGS, onboardingComplete: false },
+        isPlatformAdmin: user.isPlatformAdmin,
+        impersonating: false,
       };
     }
 
@@ -101,6 +103,8 @@ export async function GET() {
         createdAt: r.createdAt.toISOString(),
       })),
       settings: mapSettings(salon, settings, hours, blocks),
+      isPlatformAdmin: user.isPlatformAdmin,
+      impersonating: ctx.impersonating,
     };
   });
 }

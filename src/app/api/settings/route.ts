@@ -14,6 +14,7 @@ import { updateSettings } from "@/lib/repositories/settings";
 import { HOLIDAY_REASON } from "@/lib/legacy/mapper";
 import { localDateTimeToUtc } from "@/lib/services/timezone";
 import { DAY_KEYS } from "@/types/app";
+import { BUSINESS_CATEGORIES } from "@/lib/roleLabels";
 
 const dayHours = z.strictObject({
   open: z.boolean(),
@@ -25,6 +26,9 @@ const legacySettings = z
   .strictObject({
     businessName: z.string().trim().max(200).optional(),
     businessType: z.string().trim().max(100).optional(),
+    businessCategory: z
+      .enum(BUSINESS_CATEGORIES as unknown as [string, ...string[]])
+      .optional(),
     address: z.string().trim().max(500).optional(),
     phone: z.string().trim().max(40).optional(),
     email: z.string().trim().max(320).optional(),
@@ -86,6 +90,9 @@ export async function PUT(request: NextRequest) {
     await updateSalon(salonId, {
       ...(body.businessName !== undefined && { name: body.businessName }),
       ...(body.businessType !== undefined && { businessType: body.businessType }),
+      ...(body.businessCategory !== undefined && {
+        category: body.businessCategory as (typeof BUSINESS_CATEGORIES)[number],
+      }),
       ...(body.address !== undefined && { address: body.address }),
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.email !== undefined && { email: body.email }),

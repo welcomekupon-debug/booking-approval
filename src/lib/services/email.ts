@@ -24,7 +24,8 @@ export type EmailEvent =
   | "booking_confirmation"
   | "appointment_reminder"
   | "cancellation"
-  | "reschedule";
+  | "reschedule"
+  | "team_invite";
 
 export interface EmailSalonInfo {
   id: string;
@@ -72,10 +73,29 @@ export interface AppointmentEmailContext {
   appointment: EmailAppointmentInfo;
 }
 
-interface EmailPayload extends AppointmentEmailContext {
+export interface TeamInviteInfo {
+  email: string;
+  role: string;
+  invitedByName: string;
+  acceptUrl: string;
+  /** ISO instant */
+  expiresAt: string;
+}
+
+export interface TeamInviteEmailContext {
+  salon: EmailSalonInfo;
+  invite: TeamInviteInfo;
+}
+
+/**
+ * Appointment events all share the salon/customer/appointment shape; other
+ * events (team_invite) carry their own payload. The index signature keeps
+ * `triggerWebhook` usable for both without weakening the per-event helpers
+ * below, which still build fully-typed payloads before calling it.
+ */
+interface EmailPayload {
   event: EmailEvent;
-  /** Event-specific extras (e.g. cancellation reason, previous appointment time) */
-  meta?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 const EVENT_ENV_VAR: Record<EmailEvent, string> = {
@@ -83,6 +103,7 @@ const EVENT_ENV_VAR: Record<EmailEvent, string> = {
   appointment_reminder: "N8N_WEBHOOK_URL_APPOINTMENT_REMINDER",
   cancellation: "N8N_WEBHOOK_URL_CANCELLATION",
   reschedule: "N8N_WEBHOOK_URL_RESCHEDULE",
+  team_invite: "N8N_WEBHOOK_URL_TEAM_INVITE",
 };
 
 function resolveWebhookUrl(event: EmailEvent): string | null {
@@ -275,6 +296,11 @@ export const emailService = {
         previousTime: formatEmailTime(previousStartsAt, ctx.salon.timezone),
       },
     });
+  },
+
+  /** Sent when an owner/manager invites someone to join the salon's team. */
+  sendTeamInvite(ctx: TeamInviteEmailContext): Promise<void> {
+    return triggerWebhook({ event: "team_invite", ...ctx });
   },
 
   // Add new email types here as the app grows — one method, one event name,

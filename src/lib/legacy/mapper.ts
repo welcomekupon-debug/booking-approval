@@ -164,6 +164,7 @@ export function mapSettings(
   return {
     businessName: salon.name,
     businessType: salon.businessType ?? "",
+    businessCategory: salon.category,
     address: salon.address ?? "",
     phone: salon.phone ?? "",
     email: salon.email ?? "",

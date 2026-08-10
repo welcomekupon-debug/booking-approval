@@ -54,7 +54,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user } = useUser();
   const { theme, toggle } = useTheme();
-  const { bookings, settings, loading, error, clientName } = useWorkspace();
+  const {
+    bookings,
+    settings,
+    loading,
+    error,
+    clientName,
+    isPlatformAdmin,
+    impersonating,
+    stopImpersonating,
+  } = useWorkspace();
+  const [exiting, setExiting] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -172,8 +182,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      {/* ── Impersonation banner ────────────────────────────────────────── */}
+      {impersonating && (
+        <div className="fixed top-0 inset-x-0 z-50 h-9 bg-gold-500 text-white flex items-center justify-center gap-3 text-xs font-semibold px-4">
+          <Icon name="shield" className="w-3.5 h-3.5" />
+          <span>Viewing {clientName || "this salon"} as platform admin</span>
+          <button
+            onClick={async () => {
+              setExiting(true);
+              await stopImpersonating();
+              router.push("/admin");
+            }}
+            disabled={exiting}
+            className="underline underline-offset-2 hover:opacity-80 transition-opacity disabled:opacity-50"
+          >
+            {exiting ? "Exiting…" : "Exit"}
+          </button>
+        </div>
+      )}
+
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 z-30">
+      <aside
+        className={`hidden lg:flex fixed ${impersonating ? "top-9 bottom-0" : "inset-y-0"} left-0 w-64 flex-col bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 z-30`}
+      >
         <div className="px-5 pt-6 pb-5">
           <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
         </div>
@@ -202,6 +233,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
+        {isPlatformAdmin && !impersonating && (
+          <div className="px-3 pb-2">
+            <Link
+              href="/admin"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-ink-500 dark:text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800 hover:text-ink-900 dark:hover:text-ink-100 transition-colors"
+            >
+              <Icon name="shield" className="w-[18px] h-[18px] shrink-0" />
+              Platform admin
+            </Link>
+          </div>
+        )}
+
         <div className="px-5 py-4 border-t border-ink-100 dark:border-ink-800 flex items-center gap-3">
           <UserButton />
           <div className="min-w-0 flex-1">
@@ -216,7 +259,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── Topbar ──────────────────────────────────────────────────────── */}
-      <header className="fixed top-0 right-0 left-0 lg:left-64 h-16 bg-white/80 dark:bg-ink-900/80 backdrop-blur-xl border-b border-ink-100 dark:border-ink-800 z-20 flex items-center gap-3 px-4 sm:px-6">
+      <header
+        className={`fixed ${impersonating ? "top-9" : "top-0"} right-0 left-0 lg:left-64 h-16 bg-white/80 dark:bg-ink-900/80 backdrop-blur-xl border-b border-ink-100 dark:border-ink-800 z-20 flex items-center gap-3 px-4 sm:px-6`}
+      >
         <button
           onClick={() => setMobileNavOpen(true)}
           className="lg:hidden p-2 -ml-1 rounded-xl text-ink-500 hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors"
@@ -295,7 +340,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {/* ── Main content ────────────────────────────────────────────────── */}
-      <main className="lg:pl-64 pt-16 min-h-screen">
+      <main className={`lg:pl-64 ${impersonating ? "pt-[100px]" : "pt-16"} min-h-screen`}>
         <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 max-w-[1400px] mx-auto">
           {children}
         </div>

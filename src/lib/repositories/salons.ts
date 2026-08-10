@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db, type DbOrTx } from "@/lib/db";
-import { memberships, salons, settings } from "@/lib/db/schema";
+import { memberships, salons, settings, users } from "@/lib/db/schema";
 import type { Salon } from "@/lib/db/types";
 
 /** Public lookup for /book/{slug}. */
@@ -26,6 +26,7 @@ export async function updateSalon(
       Salon,
       | "name"
       | "businessType"
+      | "category"
       | "email"
       | "phone"
       | "website"
@@ -98,6 +99,39 @@ export async function createSalonForUser(
 
     return salon;
   });
+}
+
+/** Platform-admin only — every salon, with its owner(s) for a picker UI. */
+export async function listAllSalonsForAdmin(): Promise<
+  { salon: Salon; owners: { name: string | null; email: string }[] }[]
+> {
+  const allSalons = await db
+    .select()
+    .from(salons)
+    .where(isNull(salons.deletedAt))
+    .orderBy(salons.createdAt);
+
+  const owners = await db
+    .select({
+      salonId: memberships.salonId,
+      name: users.name,
+      email: users.email,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(memberships.userId, users.id))
+    .where(eq(memberships.role, "owner"));
+
+  const ownersBySalon = new Map<string, { name: string | null; email: string }[]>();
+  for (const o of owners) {
+    const list = ownersBySalon.get(o.salonId) ?? [];
+    list.push({ name: o.name, email: o.email });
+    ownersBySalon.set(o.salonId, list);
+  }
+
+  return allSalons.map((salon) => ({
+    salon,
+    owners: ownersBySalon.get(salon.id) ?? [],
+  }));
 }
 
 export type { DbOrTx };

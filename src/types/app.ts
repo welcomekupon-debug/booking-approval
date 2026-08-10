@@ -61,6 +61,8 @@ export interface DayHours {
 export interface BusinessSettings {
   businessName: string;
   businessType: string;
+  /** Coarse vertical — drives role labels (Stylist/Trainer/Provider/…) */
+  businessCategory: string;
   address: string;
   phone: string;
   email: string;
@@ -97,6 +99,7 @@ export const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as con
 export const DEFAULT_SETTINGS: BusinessSettings = {
   businessName: "",
   businessType: "",
+  businessCategory: "salon",
   address: "",
   phone: "",
   email: "",
@@ -172,6 +175,8 @@ export interface WorkspaceData {
   notifications: ServerNotification[];
   changeRequests: ChangeRequestItem[];
   settings: BusinessSettings;
+  isPlatformAdmin: boolean;
+  impersonating: boolean;
 }
 
 // ── Notification view model (server rows + client-derived reminders) ───────

@@ -9,6 +9,7 @@ import type {
   calendarEventLinks,
   calendarIntegrations,
   customers,
+  invitations,
   memberships,
   notifications,
   salons,
@@ -38,6 +39,7 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;
 export type CalendarEventLink = typeof calendarEventLinks.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;
 
 // Insert types
 export type NewUser = typeof users.$inferInsert;
@@ -50,12 +52,15 @@ export type NewAppointment = typeof appointments.$inferInsert;
 export type NewAppointmentService = typeof appointmentServices.$inferInsert;
 export type NewBlockedTime = typeof blockedTimes.$inferInsert;
 export type NewNotification = typeof notifications.$inferInsert;
+export type NewInvitation = typeof invitations.$inferInsert;
 
 export type MembershipRole = Membership["role"];
 export type AppointmentStatus = Appointment["status"];
 export type AppointmentSource = Appointment["source"];
 export type ChangeRequestType = AppointmentChangeRequest["type"];
 export type ChangeRequestStatus = AppointmentChangeRequest["status"];
+export type BusinessCategory = Salon["category"];
+export type InvitationStatus = Invitation["status"];
 
 /** Appointment with its line items + customer/staff, the common read shape. */
 export interface AppointmentDetail extends Appointment {
