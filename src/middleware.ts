@@ -9,6 +9,8 @@ const isPublicRoute = createRouteMatcher([
   "/book(.*)",
   // Public "manage your booking" page — token-gated instead of Clerk-gated
   "/manage(.*)",
+  // Public review-request landing page — same token scheme as /manage
+  "/review(.*)",
   // Invite landing page — previewable without a session; accepting requires one
   "/invite(.*)",
   "/api/invite(.*)",

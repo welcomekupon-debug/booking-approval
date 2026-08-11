@@ -25,7 +25,8 @@ export type EmailEvent =
   | "appointment_reminder"
   | "cancellation"
   | "reschedule"
-  | "team_invite";
+  | "team_invite"
+  | "review_request";
 
 export interface EmailSalonInfo {
   id: string;
@@ -87,6 +88,22 @@ export interface TeamInviteEmailContext {
   invite: TeamInviteInfo;
 }
 
+export interface ReviewRequestInfo {
+  /** Pre-formatted in the salon's own timezone */
+  date: string;
+  serviceName: string;
+  /** "" (never null) — same convention as EmailAppointmentInfo.staffName */
+  staffName: string;
+  /** Public, no-login star-rating page */
+  reviewUrl: string;
+}
+
+export interface ReviewRequestEmailContext {
+  salon: EmailSalonInfo;
+  customer: EmailCustomerInfo;
+  review: ReviewRequestInfo;
+}
+
 /**
  * Appointment events all share the salon/customer/appointment shape; other
  * events (team_invite) carry their own payload. The index signature keeps
@@ -104,6 +121,7 @@ const EVENT_ENV_VAR: Record<EmailEvent, string> = {
   cancellation: "N8N_WEBHOOK_URL_CANCELLATION",
   reschedule: "N8N_WEBHOOK_URL_RESCHEDULE",
   team_invite: "N8N_WEBHOOK_URL_TEAM_INVITE",
+  review_request: "N8N_WEBHOOK_URL_REVIEW_REQUEST",
 };
 
 function resolveWebhookUrl(event: EmailEvent): string | null {
@@ -159,7 +177,7 @@ const dateFmtCache = new Map<string, Intl.DateTimeFormat>();
 const timeFmtCache = new Map<string, Intl.DateTimeFormat>();
 
 /** e.g. "Friday, 24 July 2026" in the given salon's own timezone. */
-function formatEmailDate(instant: Date, timeZone: string): string {
+export function formatEmailDate(instant: Date, timeZone: string): string {
   let fmt = dateFmtCache.get(timeZone);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat("en-GB", {
@@ -301,6 +319,11 @@ export const emailService = {
   /** Sent when an owner/manager invites someone to join the salon's team. */
   sendTeamInvite(ctx: TeamInviteEmailContext): Promise<void> {
     return triggerWebhook({ event: "team_invite", ...ctx });
+  },
+
+  /** Sent manually by staff — never automatic — asking a customer to rate their visit. */
+  sendReviewRequest(ctx: ReviewRequestEmailContext): Promise<void> {
+    return triggerWebhook({ event: "review_request", ...ctx });
   },
 
   // Add new email types here as the app grows — one method, one event name,

@@ -189,6 +189,9 @@ export const salons = pgTable(
     address: text("address"),
     logoUrl: text("logo_url"),
     brandColor: text("brand_color"),
+    /** Link to your Google Business review page — shown to customers who
+     *  leave a high internal rating, never customers who leave a low one. */
+    googleReviewUrl: text("google_review_url"),
     /** ISO 4217, e.g. "EUR" */
     currency: text("currency").notNull().default("EUR"),
     /** IANA timezone, e.g. "Europe/Ljubljana" — all local-time math uses this */
@@ -414,6 +417,9 @@ export const appointments = pgTable(
     ),
     /** External idempotency key (e.g. Tally submission id via n8n) */
     externalRef: text("external_ref"),
+    /** Set once a review-request email has gone out — makes the "send to
+     *  today's appointments" action safe to click more than once. */
+    reviewRequestedAt: timestamp("review_requested_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -491,6 +497,40 @@ export const appointmentChangeRequests = pgTable(
   (t) => [
     index("change_requests_salon_status_idx").on(t.salonId, t.status),
     index("change_requests_appointment_idx").on(t.appointmentId),
+  ]
+);
+
+/**
+ * Internal-only 1-5 star feedback, one per appointment, requested manually
+ * by staff (never automatic) via a signed link a la "manage your booking".
+ * Never shown to customers or the public — that's what the Google review
+ * link (salons.googleReviewUrl) is for. staffId is snapshotted at submit
+ * time so a later staff-catalog edit never rewrites past feedback.
+ */
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: id(),
+    salonId: uuid("salon_id")
+      .notNull()
+      .references(() => salons.id, { onDelete: "restrict" }),
+    appointmentId: uuid("appointment_id")
+      .notNull()
+      .references(() => appointments.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    staffId: uuid("staff_id").references(() => staff.id, {
+      onDelete: "set null",
+    }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("reviews_appointment_idx").on(t.appointmentId),
+    index("reviews_salon_staff_idx").on(t.salonId, t.staffId),
+    check("reviews_rating_range", sql`${t.rating} >= 1 AND ${t.rating} <= 5`),
   ]
 );
 
@@ -873,6 +913,7 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
   }),
   services: many(appointmentServices),
   changeRequests: many(appointmentChangeRequests),
+  reviews: many(reviews),
   rescheduledFrom: one(appointments, {
     fields: [appointments.rescheduledFromId],
     references: [appointments.id],
@@ -896,6 +937,19 @@ export const appointmentChangeRequestsRelations = relations(
     }),
   })
 );
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  salon: one(salons, { fields: [reviews.salonId], references: [salons.id] }),
+  appointment: one(appointments, {
+    fields: [reviews.appointmentId],
+    references: [appointments.id],
+  }),
+  customer: one(customers, {
+    fields: [reviews.customerId],
+    references: [customers.id],
+  }),
+  staff: one(staff, { fields: [reviews.staffId], references: [staff.id] }),
+}));
 
 export const appointmentServicesRelations = relations(
   appointmentServices,

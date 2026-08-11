@@ -21,6 +21,7 @@ export async function GET() {
         email: m.user.email,
         imageUrl: m.user.imageUrl,
         role: m.membership.role,
+        staffId: m.membership.staffId,
         joinedAt: m.membership.createdAt.toISOString(),
       })),
       invitations: invitations.map((i) => ({

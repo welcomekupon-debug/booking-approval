@@ -420,6 +420,16 @@ function SettingsContent() {
                     onChange={(e) => patch({ website: e.target.value })}
                   />
                 </Field>
+                <Field
+                  label="Google review link"
+                  hint="Shown to customers who leave a high internal rating."
+                >
+                  <Input
+                    value={form.googleReviewUrl}
+                    placeholder="https://g.page/r/…/review"
+                    onChange={(e) => patch({ googleReviewUrl: e.target.value })}
+                  />
+                </Field>
                 <Field label="Timezone" hint="All appointment times use this.">
                   <Select
                     value={form.timezone}
@@ -1116,7 +1126,9 @@ function SettingsContent() {
 
           {tab === "integrations" && <IntegrationsSection />}
 
-          {tab === "team" && <TeamSection businessCategory={form.businessCategory} />}
+          {tab === "team" && (
+            <TeamSection businessCategory={form.businessCategory} staffList={staff} />
+          )}
 
           {tab === "notifications" && (
             <SectionCard

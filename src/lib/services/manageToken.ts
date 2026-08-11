@@ -59,3 +59,18 @@ export function buildManageUrl(appointmentId: string): string | null {
     return null;
   }
 }
+
+/**
+ * Review-request link — same signed token as the manage-booking link (it's
+ * just an HMAC of the appointment id, not purpose-specific), pointed at the
+ * review page instead. Same null-on-misconfiguration contract as above.
+ */
+export function buildReviewUrl(appointmentId: string): string | null {
+  try {
+    const token = signAppointmentToken(appointmentId);
+    return `${appBaseUrl()}/review/${appointmentId}/${token}`;
+  } catch (err) {
+    console.warn("[manageToken] Couldn't build review URL:", err);
+    return null;
+  }
+}

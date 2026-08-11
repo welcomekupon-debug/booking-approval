@@ -20,6 +20,7 @@ interface MemberRow {
   name: string | null;
   email: string;
   role: MembershipRole;
+  staffId: string | null;
   joinedAt: string;
 }
 
@@ -47,7 +48,13 @@ function initials(name: string | null, email: string): string {
   return source.slice(0, 2).toUpperCase();
 }
 
-export function TeamSection({ businessCategory }: { businessCategory: string }) {
+export function TeamSection({
+  businessCategory,
+  staffList,
+}: {
+  businessCategory: string;
+  staffList: { id?: string; name: string }[];
+}) {
   const labels = useMemo(
     () => roleLabelsFor(businessCategory as Parameters<typeof roleLabelsFor>[0]),
     [businessCategory]
@@ -144,6 +151,25 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
     }
   }
 
+  async function linkStaff(membershipId: string, staffId: string | null) {
+    setBusyId(membershipId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/team/${membershipId}/staff`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Couldn't link that staff profile.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't link that staff profile.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function removeMember(membershipId: string, name: string) {
     if (!window.confirm(`Remove ${name} from your team?`)) return;
     setBusyId(membershipId);
@@ -185,48 +211,81 @@ export function TeamSection({ businessCategory }: { businessCategory: string }) 
               {data.members.map((m) => {
                 const canManage = RANK[data.currentRole] >= RANK[m.role];
                 const isSelf = m.userId === data.currentUserId;
+                const canLinkStaff = RANK[data.currentRole] >= RANK.manager;
+                const linkedStaff = staffList.find((s) => s.id === m.staffId);
                 return (
-                  <div key={m.membershipId} className="flex items-center gap-3 py-3">
-                    <div className="w-9 h-9 rounded-full bg-gold-100 dark:bg-gold-900/30 text-gold-700 dark:text-gold-300 flex items-center justify-center text-xs font-bold shrink-0">
-                      {initials(m.name, m.email)}
+                  <div key={m.membershipId} className="py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gold-100 dark:bg-gold-900/30 text-gold-700 dark:text-gold-300 flex items-center justify-center text-xs font-bold shrink-0">
+                        {initials(m.name, m.email)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">
+                          {m.name || m.email}
+                          {isSelf && <span className="text-ink-400 font-normal"> (you)</span>}
+                        </p>
+                        <p className="text-[11px] text-ink-400 truncate">{m.email}</p>
+                      </div>
+                      {canManage && !isSelf ? (
+                        <Select
+                          value={m.role}
+                          disabled={busyId === m.membershipId}
+                          onChange={(e) =>
+                            changeRole(m.membershipId, e.target.value as MembershipRole)
+                          }
+                          className="w-auto text-xs py-1.5"
+                        >
+                          {assignableRoles.map((r) => (
+                            <option key={r} value={r}>
+                              {labels[r]}
+                            </option>
+                          ))}
+                          {!assignableRoles.includes(m.role) && (
+                            <option value={m.role}>{labels[m.role]}</option>
+                          )}
+                        </Select>
+                      ) : (
+                        <Badge tone="grey">{labels[m.role]}</Badge>
+                      )}
+                      {canManage && !isSelf && (
+                        <button
+                          onClick={() => removeMember(m.membershipId, m.name || m.email)}
+                          disabled={busyId === m.membershipId}
+                          className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                          aria-label={`Remove ${m.name || m.email}`}
+                        >
+                          <Icon name="trash" className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-ink-800 dark:text-ink-100 truncate">
-                        {m.name || m.email}
-                        {isSelf && <span className="text-ink-400 font-normal"> (you)</span>}
-                      </p>
-                      <p className="text-[11px] text-ink-400 truncate">{m.email}</p>
-                    </div>
-                    {canManage && !isSelf ? (
-                      <Select
-                        value={m.role}
-                        disabled={busyId === m.membershipId}
-                        onChange={(e) =>
-                          changeRole(m.membershipId, e.target.value as MembershipRole)
-                        }
-                        className="w-auto text-xs py-1.5"
-                      >
-                        {assignableRoles.map((r) => (
-                          <option key={r} value={r}>
-                            {labels[r]}
-                          </option>
-                        ))}
-                        {!assignableRoles.includes(m.role) && (
-                          <option value={m.role}>{labels[m.role]}</option>
+                    {canLinkStaff && (
+                      <div className="flex items-center gap-2 mt-2 ml-12">
+                        <span className="text-[11px] text-ink-400 shrink-0">
+                          Staff profile:
+                        </span>
+                        <Select
+                          value={m.staffId ?? ""}
+                          disabled={busyId === m.membershipId}
+                          onChange={(e) =>
+                            linkStaff(m.membershipId, e.target.value || null)
+                          }
+                          className="w-auto text-xs py-1"
+                        >
+                          <option value="">Not linked</option>
+                          {staffList
+                            .filter((s) => s.id)
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                        </Select>
+                        {!linkedStaff && m.staffId && (
+                          <span className="text-[11px] text-amber-600">
+                            (linked profile no longer exists)
+                          </span>
                         )}
-                      </Select>
-                    ) : (
-                      <Badge tone="grey">{labels[m.role]}</Badge>
-                    )}
-                    {canManage && !isSelf && (
-                      <button
-                        onClick={() => removeMember(m.membershipId, m.name || m.email)}
-                        disabled={busyId === m.membershipId}
-                        className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                        aria-label={`Remove ${m.name || m.email}`}
-                      >
-                        <Icon name="trash" className="w-4 h-4" />
-                      </button>
+                      </div>
                     )}
                   </div>
                 );

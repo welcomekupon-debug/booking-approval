@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { href: "/calendar", label: "Calendar", icon: "calendar", shortcut: "C" },
   { href: "/appointments", label: "Appointments", icon: "clipboard", shortcut: "A" },
   { href: "/customers", label: "Customers", icon: "users", shortcut: "U" },
+  { href: "/reviews", label: "Reviews", icon: "star", shortcut: "R" },
   { href: "/analytics", label: "Analytics", icon: "chart", shortcut: "N" },
   { href: "/settings", label: "Settings", icon: "settings", shortcut: "S" },
 ];

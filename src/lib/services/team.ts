@@ -17,7 +17,9 @@ import {
   getMembership,
   listMembers,
   updateMemberRole,
+  updateMembershipStaffLink,
 } from "@/lib/repositories/memberships";
+import { getStaffById } from "@/lib/repositories/catalog";
 import { recordAudit } from "@/lib/repositories/audit";
 import { emailService, toEmailSalonInfo } from "@/lib/services/email";
 import { appBaseUrl } from "@/lib/services/manageToken";
@@ -172,6 +174,41 @@ export async function changeMemberRole(
     entityType: "membership",
     entityId: membershipId,
     changes: { from: target.role, to: newRole },
+  });
+
+  return updated;
+}
+
+/**
+ * Link (or unlink) a teammate's account to a bookable staff profile — the
+ * bridge between "who can sign in" (memberships) and "who appointments get
+ * assigned to" (staff). Needed for anything that should be scoped to "your
+ * own" work, like a stylist only seeing their own reviews.
+ */
+export async function linkMembershipToStaff(
+  ctx: TenantContext,
+  membershipId: string,
+  staffId: string | null
+): Promise<Membership> {
+  const target = await getMembership(ctx.salon.id, membershipId);
+  if (!target) throw ApiError.notFound("Team member not found.");
+
+  if (staffId) {
+    const staffRow = await getStaffById(ctx.salon.id, staffId);
+    if (!staffRow) throw ApiError.badRequest("Staff profile not found.");
+  }
+
+  const updated = await updateMembershipStaffLink(ctx.salon.id, membershipId, staffId);
+  if (!updated) throw ApiError.notFound("Team member not found.");
+
+  await recordAudit(db, {
+    salonId: ctx.salon.id,
+    actorType: "user",
+    actorUserId: ctx.user.id,
+    action: "team.staff_linked",
+    entityType: "membership",
+    entityId: membershipId,
+    changes: { from: target.staffId, to: staffId },
   });
 
   return updated;

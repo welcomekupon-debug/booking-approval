@@ -14,6 +14,11 @@ export const changeMemberRoleSchema = z.strictObject({
   role: zMembershipRole,
 });
 
+/** PATCH /api/team/[membershipId]/staff */
+export const linkStaffSchema = z.strictObject({
+  staffId: zUuid.nullable(),
+});
+
 /** POST /api/admin/impersonate */
 export const impersonateSchema = z.strictObject({
   salonId: zUuid,

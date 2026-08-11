@@ -12,6 +12,7 @@ import type {
   invitations,
   memberships,
   notifications,
+  reviews,
   salons,
   services,
   settings,
@@ -40,6 +41,7 @@ export type CalendarIntegration = typeof calendarIntegrations.$inferSelect;
 export type CalendarEventLink = typeof calendarEventLinks.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type Invitation = typeof invitations.$inferSelect;
+export type Review = typeof reviews.$inferSelect;
 
 // Insert types
 export type NewUser = typeof users.$inferInsert;
@@ -53,6 +55,7 @@ export type NewAppointmentService = typeof appointmentServices.$inferInsert;
 export type NewBlockedTime = typeof blockedTimes.$inferInsert;
 export type NewNotification = typeof notifications.$inferInsert;
 export type NewInvitation = typeof invitations.$inferInsert;
+export type NewReview = typeof reviews.$inferInsert;
 
 export type MembershipRole = Membership["role"];
 export type AppointmentStatus = Appointment["status"];

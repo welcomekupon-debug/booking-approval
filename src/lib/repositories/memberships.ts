@@ -76,6 +76,20 @@ export async function updateMemberRole(
   return row ?? null;
 }
 
+/** Link (or unlink, staffId=null) a team member's account to a bookable staff profile. */
+export async function updateMembershipStaffLink(
+  salonId: string,
+  membershipId: string,
+  staffId: string | null
+): Promise<Membership | null> {
+  const [row] = await db
+    .update(memberships)
+    .set({ staffId, updatedAt: new Date() })
+    .where(and(eq(memberships.id, membershipId), eq(memberships.salonId, salonId)))
+    .returning();
+  return row ?? null;
+}
+
 export async function deleteMembership(
   salonId: string,
   membershipId: string

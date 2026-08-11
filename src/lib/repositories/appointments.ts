@@ -272,6 +272,72 @@ export async function countByStatus(
   return result;
 }
 
+/**
+ * Appointments eligible for a manual review-request send: confirmed or
+ * completed (never pending/declined/cancelled/no_show), already over, and
+ * not yet requested. `staffId` snapshot travels with the caller via
+ * `AppointmentDetail.staffId` — this never emails a no-show.
+ */
+export async function listAppointmentsForReviewRequest(
+  salonId: string,
+  range: { from: Date; to: Date }
+): Promise<AppointmentDetail[]> {
+  const rows = await db
+    .select({ appointment: appointments, customer: customers, staffMember: staff })
+    .from(appointments)
+    .innerJoin(customers, eq(appointments.customerId, customers.id))
+    .leftJoin(staff, eq(appointments.staffId, staff.id))
+    .where(
+      and(
+        eq(appointments.salonId, salonId),
+        inArray(appointments.status, ["confirmed", "completed"]),
+        gte(appointments.startsAt, range.from),
+        lt(appointments.startsAt, range.to),
+        lte(appointments.endsAt, new Date()),
+        sql`${appointments.reviewRequestedAt} IS NULL`
+      )
+    );
+
+  const ids = rows.map((r) => r.appointment.id);
+  const lines = ids.length
+    ? await db
+        .select()
+        .from(appointmentServices)
+        .where(inArray(appointmentServices.appointmentId, ids))
+        .orderBy(asc(appointmentServices.sortOrder))
+    : [];
+  const linesByAppointment = new Map<string, typeof lines>();
+  for (const line of lines) {
+    const list = linesByAppointment.get(line.appointmentId);
+    if (list) list.push(line);
+    else linesByAppointment.set(line.appointmentId, [line]);
+  }
+
+  return rows.map((r) => ({
+    ...r.appointment,
+    customer: r.customer,
+    staff: r.staffMember,
+    services: linesByAppointment.get(r.appointment.id) ?? [],
+  }));
+}
+
+/** Mark a batch of appointments as having had a review request sent. */
+export async function markReviewRequested(
+  salonId: string,
+  appointmentIds: string[]
+): Promise<void> {
+  if (appointmentIds.length === 0) return;
+  await db
+    .update(appointments)
+    .set({ reviewRequestedAt: new Date() })
+    .where(
+      and(
+        eq(appointments.salonId, salonId),
+        inArray(appointments.id, appointmentIds)
+      )
+    );
+}
+
 /** Bookings + revenue per calendar bucket for charts, computed in SQL. */
 export async function seriesByPeriod(
   salonId: string,

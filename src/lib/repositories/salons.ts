@@ -36,6 +36,7 @@ export async function updateSalon(
       | "brandColor"
       | "currency"
       | "timezone"
+      | "googleReviewUrl"
     >
   >
 ): Promise<Salon> {

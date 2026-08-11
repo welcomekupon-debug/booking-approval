@@ -40,6 +40,7 @@ const legacySettings = z
     phone: z.string().trim().max(40).optional(),
     email: z.string().trim().max(320).optional(),
     website: z.string().trim().max(300).optional(),
+    googleReviewUrl: z.string().trim().max(500).optional(),
     logoUrl: z.string().trim().max(1000).optional(),
     brandColor: z.string().trim().max(20).optional(),
     currency: z.string().trim().length(3).optional(),
@@ -113,6 +114,9 @@ export async function PUT(request: NextRequest) {
       ...(body.phone !== undefined && { phone: body.phone }),
       ...(body.email !== undefined && { email: body.email }),
       ...(body.website !== undefined && { website: body.website }),
+      ...(body.googleReviewUrl !== undefined && {
+        googleReviewUrl: body.googleReviewUrl || null,
+      }),
       ...(body.logoUrl !== undefined && { logoUrl: body.logoUrl }),
       ...(body.brandColor !== undefined && { brandColor: body.brandColor }),
       ...(body.currency !== undefined && { currency: body.currency }),

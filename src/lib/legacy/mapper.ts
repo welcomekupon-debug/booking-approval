@@ -210,6 +210,7 @@ export function mapSettings(
     phone: salon.phone ?? "",
     email: salon.email ?? "",
     website: salon.website ?? "",
+    googleReviewUrl: salon.googleReviewUrl ?? "",
     logoUrl: salon.logoUrl ?? "",
     brandColor: salon.brandColor ?? "#B99A55",
     currency: salon.currency,

@@ -98,6 +98,8 @@ export interface BusinessSettings {
   phone: string;
   email: string;
   website: string;
+  /** Google Business review page — shown to customers who leave a high internal rating */
+  googleReviewUrl: string;
   logoUrl: string;
   brandColor: string;
   currency: string;
@@ -136,6 +138,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   phone: "",
   email: "",
   website: "",
+  googleReviewUrl: "",
   logoUrl: "",
   brandColor: "#B99A55",
   currency: "EUR",
