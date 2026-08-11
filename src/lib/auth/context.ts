@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { currentUser } from "@clerk/nextjs/server";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { memberships, salons, users } from "@/lib/db/schema";
 import type { Membership, MembershipRole, Salon, User } from "@/lib/db/types";
@@ -104,7 +104,14 @@ export async function getOrCreateUser(): Promise<User | null> {
   return created;
 }
 
-/** All salons the current user belongs to (for the salon switcher). */
+/**
+ * All salons the current user belongs to (for the salon switcher).
+ * Ordered by membership.createdAt so `all[0]` — the fallback used when no
+ * active-salon cookie is set — is always the salon they joined first,
+ * rather than whatever order Postgres happens to return (which is NOT
+ * guaranteed without an explicit ORDER BY, and can silently change between
+ * requests for anyone with more than one membership).
+ */
 export async function getUserMemberships(
   userId: string
 ): Promise<{ membership: Membership; salon: Salon }[]> {
@@ -112,7 +119,8 @@ export async function getUserMemberships(
     .select({ membership: memberships, salon: salons })
     .from(memberships)
     .innerJoin(salons, eq(memberships.salonId, salons.id))
-    .where(eq(memberships.userId, userId));
+    .where(eq(memberships.userId, userId))
+    .orderBy(asc(memberships.createdAt));
 
   return rows.filter((r) => r.salon.deletedAt === null);
 }
