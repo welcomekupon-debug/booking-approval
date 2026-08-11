@@ -122,6 +122,8 @@ export const invitationStatus = pgEnum("invitation_status", [
   "expired",
 ]);
 
+export const promoType = pgEnum("promo_type", ["percent", "fixed"]);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared column helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -309,6 +311,17 @@ export const services = pgTable(
     isPublic: boolean("is_public").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    /**
+     * One active/scheduled promotion at a time. `promoValue` is a percent
+     * (1-100) when promoType is "percent", or a fixed price in cents when
+     * "fixed". Whether it's currently live is computed from the start/end
+     * window at read time — nothing here needs a cron to expire.
+     */
+    promoLabel: text("promo_label"),
+    promoType: promoType("promo_type"),
+    promoValue: integer("promo_value"),
+    promoStartsAt: timestamp("promo_starts_at", { withTimezone: true }),
+    promoEndsAt: timestamp("promo_ends_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
@@ -317,6 +330,14 @@ export const services = pgTable(
     index("services_salon_idx").on(t.salonId, t.isActive, t.sortOrder),
     check("services_duration_positive", sql`${t.durationMinutes} > 0`),
     check("services_price_nonnegative", sql`${t.priceCents} >= 0`),
+    check(
+      "services_promo_value_valid",
+      sql`${t.promoValue} IS NULL OR ${t.promoValue} >= 0`
+    ),
+    check(
+      "services_promo_window_valid",
+      sql`(${t.promoStartsAt} IS NULL AND ${t.promoEndsAt} IS NULL) OR (${t.promoStartsAt} IS NOT NULL AND ${t.promoEndsAt} IS NOT NULL AND ${t.promoEndsAt} > ${t.promoStartsAt})`
+    ),
   ]
 );
 

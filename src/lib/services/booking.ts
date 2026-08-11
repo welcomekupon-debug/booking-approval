@@ -21,6 +21,7 @@ import { getSettings } from "@/lib/repositories/settings";
 import { notifySalonMembers } from "@/lib/repositories/notifications";
 import { recordAudit } from "@/lib/repositories/audit";
 import { emailService, buildAppointmentEmailContext } from "@/lib/services/email";
+import { effectivePriceCents } from "@/lib/services/pricing";
 
 /**
  * Booking service — every appointment mutation flows through here so that
@@ -85,7 +86,13 @@ export async function createBooking(
     ...services.map((s) => s.bufferAfterMinutes),
     0
   );
-  const priceTotalCents = services.reduce((sum, s) => sum + s.priceCents, 0);
+  // Promo prices (if live right now) are snapshotted onto the appointment at
+  // booking time — later promo changes or expirations never retroactively
+  // touch appointments that are already booked.
+  const priceTotalCents = services.reduce(
+    (sum, s) => sum + effectivePriceCents(s),
+    0
+  );
 
   const startsAt = input.startsAt;
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
@@ -134,7 +141,7 @@ export async function createBooking(
         serviceId: s.id,
         serviceName: s.name,
         durationMinutes: s.durationMinutes,
-        priceCents: s.priceCents,
+        priceCents: effectivePriceCents(s),
         sortOrder: i,
       }))
     );
@@ -401,17 +408,18 @@ export async function editAppointment(
         .where(eq(appointmentServices.appointmentId, appointmentId));
 
       if (match) {
+        const matchPriceCents = effectivePriceCents(match);
         await tx.insert(appointmentServices).values({
           salonId,
           appointmentId,
           serviceId: match.id,
           serviceName: match.name,
           durationMinutes: match.durationMinutes,
-          priceCents: match.priceCents,
+          priceCents: matchPriceCents,
           sortOrder: 0,
         });
         durationMinutes = durationMinutes ?? match.durationMinutes;
-        patch.priceTotalCents = input.priceTotalCents ?? match.priceCents;
+        patch.priceTotalCents = input.priceTotalCents ?? matchPriceCents;
       } else if (input.serviceName.trim()) {
         await tx.insert(appointmentServices).values({
           salonId,

@@ -14,10 +14,16 @@ import type {
   CustomerMeta,
   DayHours,
   Service,
+  ServicePromo,
   StaffMember,
 } from "@/types/app";
 import { DAY_KEYS, DEFAULT_SETTINGS } from "@/types/app";
 import { utcToWall } from "@/lib/services/timezone";
+import {
+  effectivePriceCents,
+  isPromoActive,
+  isPromoScheduled,
+} from "@/lib/services/pricing";
 
 /**
  * Legacy mapper — translates between Postgres rows and the sheet-era view
@@ -100,7 +106,20 @@ export function mapAppointment(
   };
 }
 
-export function mapService(s: DbService): Service {
+/** UTC instant → local "YYYY-MM-DD" in the given timezone. */
+function toIsoDateInTz(instant: Date, timezone: string): string {
+  const w = utcToWall(instant, timezone);
+  return `${w.year}-${pad(w.month)}-${pad(w.day)}`;
+}
+
+export function mapService(s: DbService, timezone: string): Service {
+  const hasPromo = !!(
+    s.promoType &&
+    s.promoValue != null &&
+    s.promoStartsAt &&
+    s.promoEndsAt
+  );
+
   return {
     id: s.id,
     name: s.name,
@@ -108,6 +127,20 @@ export function mapService(s: DbService): Service {
     price: centsToDecimal(s.priceCents),
     color: s.color ?? "",
     active: s.isActive,
+    promo: hasPromo
+      ? {
+          label: s.promoLabel ?? "",
+          type: s.promoType!,
+          percentOff: s.promoType === "percent" ? s.promoValue! : undefined,
+          fixedPrice:
+            s.promoType === "fixed" ? centsToDecimal(s.promoValue!) : undefined,
+          startsAt: toIsoDateInTz(s.promoStartsAt!, timezone),
+          endsAt: toIsoDateInTz(s.promoEndsAt!, timezone),
+          active: isPromoActive(s),
+          scheduled: isPromoScheduled(s),
+          effectivePrice: centsToDecimal(effectivePriceCents(s)),
+        }
+      : null,
   };
 }
 

@@ -62,6 +62,12 @@ const DAY_LABELS: Record<string, string> = {
   fri: "Friday", sat: "Saturday", sun: "Sunday",
 };
 
+/** "YYYY-MM-DD" + N days → "YYYY-MM-DD" */
+function addIsoDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 /** Every ISO date from `from` to `to`, inclusive. Capped at a year to avoid runaway input. */
 function isoDateRange(from: string, to: string): string[] {
   const start = new Date(`${from}T00:00:00Z`);
@@ -137,6 +143,16 @@ function SettingsContent() {
       : "custom"
   );
   const [countries, setCountries] = useState<{ code: string; name: string }[]>([]);
+  const [promoFormFor, setPromoFormFor] = useState<string | null>(null);
+  const [promoForm, setPromoForm] = useState({
+    label: "",
+    type: "percent" as "percent" | "fixed",
+    value: "",
+    startsAt: "",
+    endsAt: "",
+  });
+  const [promoSaving, setPromoSaving] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   useAutoDismiss(toast, () => setToast(null));
 
@@ -207,6 +223,65 @@ function SettingsContent() {
       setToast("Couldn't save — please try again");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openPromoForm(serviceId: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    setPromoForm({ label: "", type: "percent", value: "", startsAt: today, endsAt: today });
+    setPromoError(null);
+    setPromoFormFor(serviceId);
+  }
+
+  async function submitPromo(serviceId: string) {
+    setPromoSaving(true);
+    setPromoError(null);
+    try {
+      const rawValue = promoForm.value.trim().replace(",", ".");
+      const value =
+        promoForm.type === "percent"
+          ? parseInt(rawValue, 10)
+          : Math.round(parseFloat(rawValue) * 100);
+      if (!value || isNaN(value) || value <= 0) {
+        throw new Error("Enter a valid value.");
+      }
+      const res = await fetch(`/api/services/${serviceId}/promo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: promoForm.label.trim() || undefined,
+          type: promoForm.type,
+          value,
+          startsAt: promoForm.startsAt,
+          endsAt: promoForm.endsAt,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? "Couldn't save promotion.");
+      setPromoFormFor(null);
+      await refresh();
+      setToast("Promotion saved");
+    } catch (err) {
+      setPromoError(err instanceof Error ? err.message : "Couldn't save promotion.");
+    } finally {
+      setPromoSaving(false);
+    }
+  }
+
+  async function endPromoFor(serviceId: string) {
+    setPromoSaving(true);
+    try {
+      const res = await fetch(`/api/services/${serviceId}/promo`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Couldn't end promotion.");
+      }
+      await refresh();
+      setToast("Promotion ended");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Couldn't end promotion.");
+    } finally {
+      setPromoSaving(false);
     }
   }
 
@@ -740,57 +815,182 @@ function SettingsContent() {
                 {serviceList.map((s, i) => (
                   <div
                     key={i}
-                    className="grid sm:grid-cols-[auto_1.6fr_0.8fr_0.8fr_auto_auto] grid-cols-2 gap-2 items-center p-3 rounded-xl border border-ink-100 dark:border-ink-800"
+                    className="rounded-xl border border-ink-100 dark:border-ink-800 overflow-hidden"
                   >
-                    <input
-                      type="color"
-                      value={s.color || "#B99A55"}
-                      title="Calendar colour"
-                      onChange={(e) =>
-                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, color: e.target.value } : x)))
-                      }
-                      className="w-9 h-9 rounded-lg border border-ink-200 dark:border-ink-700 cursor-pointer bg-transparent shrink-0"
-                    />
-                    <Input
-                      value={s.name}
-                      placeholder="Service name"
-                      onChange={(e) =>
-                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))
-                      }
-                    />
-                    <Input
-                      type="number"
-                      value={s.duration}
-                      placeholder="Min"
-                      onChange={(e) =>
-                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, duration: e.target.value } : x)))
-                      }
-                    />
-                    <Input
-                      type="number"
-                      value={s.price}
-                      placeholder={`Price (${form.currency})`}
-                      onChange={(e) =>
-                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, price: e.target.value } : x)))
-                      }
-                    />
-                    <button
-                      onClick={() =>
-                        setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, active: !x.active } : x)))
-                      }
-                      className="justify-self-start"
-                    >
-                      <Badge tone={s.active ? "green" : "grey"} dot>
-                        {s.active ? "Active" : "Hidden"}
-                      </Badge>
-                    </button>
-                    <button
-                      onClick={() => setServiceList((l) => l.filter((_, xi) => xi !== i))}
-                      className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors justify-self-end"
-                      aria-label="Remove"
-                    >
-                      <Icon name="trash" className="w-4 h-4" />
-                    </button>
+                    <div className="grid sm:grid-cols-[auto_1.6fr_0.8fr_0.8fr_auto_auto] grid-cols-2 gap-2 items-center p-3">
+                      <input
+                        type="color"
+                        value={s.color || "#B99A55"}
+                        title="Calendar colour"
+                        onChange={(e) =>
+                          setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, color: e.target.value } : x)))
+                        }
+                        className="w-9 h-9 rounded-lg border border-ink-200 dark:border-ink-700 cursor-pointer bg-transparent shrink-0"
+                      />
+                      <Input
+                        value={s.name}
+                        placeholder="Service name"
+                        onChange={(e) =>
+                          setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))
+                        }
+                      />
+                      <Input
+                        type="number"
+                        value={s.duration}
+                        placeholder="Min"
+                        onChange={(e) =>
+                          setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, duration: e.target.value } : x)))
+                        }
+                      />
+                      <Input
+                        type="number"
+                        value={s.price}
+                        placeholder={`Price (${form.currency})`}
+                        onChange={(e) =>
+                          setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, price: e.target.value } : x)))
+                        }
+                      />
+                      <button
+                        onClick={() =>
+                          setServiceList((l) => l.map((x, xi) => (xi === i ? { ...x, active: !x.active } : x)))
+                        }
+                        className="justify-self-start"
+                      >
+                        <Badge tone={s.active ? "green" : "grey"} dot>
+                          {s.active ? "Active" : "Hidden"}
+                        </Badge>
+                      </button>
+                      <button
+                        onClick={() => setServiceList((l) => l.filter((_, xi) => xi !== i))}
+                        className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors justify-self-end"
+                        aria-label="Remove"
+                      >
+                        <Icon name="trash" className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {s.id && (
+                      <div className="border-t border-ink-100 dark:border-ink-800 px-3 py-2.5 bg-ink-50/50 dark:bg-ink-800/20">
+                        {s.promo ? (
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge tone={s.promo.active ? "gold" : "grey"} dot>
+                                {s.promo.active ? "Promo live" : "Promo scheduled"}
+                              </Badge>
+                              <span className="text-xs text-ink-500 dark:text-ink-400">
+                                {s.promo.label && (
+                                  <span className="font-semibold text-ink-700 dark:text-ink-200">
+                                    {s.promo.label} ·{" "}
+                                  </span>
+                                )}
+                                {s.promo.type === "percent"
+                                  ? `${s.promo.percentOff}% off`
+                                  : `${form.currency} ${s.promo.fixedPrice}`}
+                                {" "}· {isoToDisplayDate(s.promo.startsAt)}–
+                                {isoToDisplayDate(s.promo.endsAt)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => endPromoFor(s.id!)}
+                              disabled={promoSaving}
+                              className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 transition-colors disabled:opacity-50 shrink-0"
+                            >
+                              End promotion
+                            </button>
+                          </div>
+                        ) : promoFormFor === s.id ? (
+                          <div className="flex flex-col gap-2.5">
+                            <div className="grid sm:grid-cols-2 gap-2.5">
+                              <Input
+                                placeholder="Promotion name (optional)"
+                                value={promoForm.label}
+                                onChange={(e) =>
+                                  setPromoForm((f) => ({ ...f, label: e.target.value }))
+                                }
+                              />
+                              <Segmented
+                                options={[
+                                  { value: "percent", label: "% off" },
+                                  { value: "fixed", label: "Fixed price" },
+                                ]}
+                                value={promoForm.type}
+                                onChange={(v) =>
+                                  setPromoForm((f) => ({ ...f, type: v, value: "" }))
+                                }
+                              />
+                            </div>
+                            <div className="grid sm:grid-cols-3 gap-2.5">
+                              <Input
+                                type="number"
+                                min={promoForm.type === "percent" ? 1 : 0}
+                                max={promoForm.type === "percent" ? 100 : undefined}
+                                placeholder={
+                                  promoForm.type === "percent"
+                                    ? "% off"
+                                    : `Price (${form.currency})`
+                                }
+                                value={promoForm.value}
+                                onChange={(e) =>
+                                  setPromoForm((f) => ({ ...f, value: e.target.value }))
+                                }
+                              />
+                              <Input
+                                type="date"
+                                value={promoForm.startsAt}
+                                min={new Date().toISOString().slice(0, 10)}
+                                onChange={(e) =>
+                                  setPromoForm((f) => ({
+                                    ...f,
+                                    startsAt: e.target.value,
+                                    endsAt:
+                                      f.endsAt && f.endsAt < e.target.value
+                                        ? e.target.value
+                                        : f.endsAt,
+                                  }))
+                                }
+                              />
+                              <Input
+                                type="date"
+                                value={promoForm.endsAt}
+                                min={promoForm.startsAt}
+                                max={addIsoDays(promoForm.startsAt, 31)}
+                                onChange={(e) =>
+                                  setPromoForm((f) => ({ ...f, endsAt: e.target.value }))
+                                }
+                              />
+                            </div>
+                            {promoError && (
+                              <p className="text-xs text-rose-600">{promoError}</p>
+                            )}
+                            <div className="flex gap-2">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                loading={promoSaving}
+                                onClick={() => submitPromo(s.id!)}
+                              >
+                                Start promotion
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setPromoFormFor(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openPromoForm(s.id!)}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold-600 hover:text-gold-700 transition-colors"
+                          >
+                            <Icon name="sparkle" className="w-3.5 h-3.5" />
+                            Add promotion
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <Button

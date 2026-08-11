@@ -24,7 +24,11 @@ interface PublicService {
   name: string;
   description: string | null;
   durationMinutes: number;
+  /** What the customer actually pays — the promo price when one is live */
   priceCents: number;
+  /** Set only while a promo is live, so the original price can show crossed out */
+  originalPriceCents: number | null;
+  promoLabel: string | null;
 }
 
 interface PublicStaff {
@@ -93,6 +97,11 @@ export function BookingFlow({
   );
   const totalMinutes = chosenServices.reduce((s, x) => s + x.durationMinutes, 0);
   const totalCents = chosenServices.reduce((s, x) => s + x.priceCents, 0);
+  const totalOriginalCents = chosenServices.reduce(
+    (s, x) => s + (x.originalPriceCents ?? x.priceCents),
+    0
+  );
+  const hasPromo = totalOriginalCents !== totalCents;
 
   const timeFmt = useMemo(
     () =>
@@ -312,8 +321,15 @@ export function BookingFlow({
                         {selected && <Icon name="check" className="w-3 h-3 text-white" />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-ink-900 dark:text-ink-50">
-                          {s.name}
+                        <span className="flex items-center gap-1.5">
+                          <span className="block text-sm font-bold text-ink-900 dark:text-ink-50">
+                            {s.name}
+                          </span>
+                          {s.originalPriceCents != null && (
+                            <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 text-[9px] font-bold uppercase tracking-wide">
+                              {s.promoLabel || "Sale"}
+                            </span>
+                          )}
                         </span>
                         {s.description && (
                           <span className="block text-xs text-ink-400 truncate">
@@ -322,7 +338,18 @@ export function BookingFlow({
                         )}
                       </span>
                       <span className="text-right shrink-0">
-                        <span className="block text-sm font-bold text-ink-900 dark:text-ink-50">
+                        {s.originalPriceCents != null && (
+                          <span className="block text-xs text-ink-400 line-through">
+                            {fmtPrice(s.originalPriceCents, salon.currency)}
+                          </span>
+                        )}
+                        <span
+                          className={`block text-sm font-bold ${
+                            s.originalPriceCents != null
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-ink-900 dark:text-ink-50"
+                          }`}
+                        >
                           {fmtPrice(s.priceCents, salon.currency)}
                         </span>
                         <span className="block text-[11px] text-ink-400">
@@ -371,7 +398,14 @@ export function BookingFlow({
               <p className="text-sm text-ink-400">
                 {selectedServices.length > 0 && (
                   <>
-                    <span className="font-bold text-ink-900 dark:text-ink-50">
+                    {hasPromo && (
+                      <span className="line-through mr-1.5">
+                        {fmtPrice(totalOriginalCents, salon.currency)}
+                      </span>
+                    )}
+                    <span
+                      className={`font-bold ${hasPromo ? "text-rose-600 dark:text-rose-400" : "text-ink-900 dark:text-ink-50"}`}
+                    >
                       {fmtPrice(totalCents, salon.currency)}
                     </span>{" "}
                     · {totalMinutes} min
@@ -529,7 +563,14 @@ export function BookingFlow({
                   timeZone: salon.timezone,
                 }).format(new Date(slot.startsAt))}{" "}
                 at {timeFmt.format(new Date(slot.startsAt))} · {totalMinutes} min ·{" "}
-                {fmtPrice(totalCents, salon.currency)}
+                {hasPromo && (
+                  <span className="line-through mr-1">
+                    {fmtPrice(totalOriginalCents, salon.currency)}
+                  </span>
+                )}
+                <span className={hasPromo ? "font-bold text-rose-600 dark:text-rose-400" : ""}>
+                  {fmtPrice(totalCents, salon.currency)}
+                </span>
               </p>
             </div>
 

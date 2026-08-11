@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zTime, zUuid } from "./booking";
+import { zIsoDate, zTime, zUuid } from "./booking";
 
 export const serviceSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -71,3 +71,38 @@ export const blockedTimeSchema = z.object({
   endsAt: z.coerce.date(),
   reason: z.string().trim().max(300).optional().nullable(),
 });
+
+const MAX_PROMO_DAYS = 31;
+
+/** Days between two "YYYY-MM-DD" strings (positive when `to` is later). */
+function daysBetween(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00Z`).getTime();
+  const b = new Date(`${to}T00:00:00Z`).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
+
+export const promoSchema = z
+  .object({
+    label: z.string().trim().max(100).optional().nullable(),
+    type: z.enum(["percent", "fixed"]),
+    // percent: 1-100. fixed: a price in cents, validated against the
+    // service's current price in the service layer (needs the row).
+    value: z.coerce.number().int().min(1),
+    // Local calendar dates ("YYYY-MM-DD") — converted to the salon's
+    // timezone-aware start/end-of-day instants in the service layer, same
+    // as holiday closures.
+    startsAt: zIsoDate,
+    endsAt: zIsoDate,
+  })
+  .refine((d) => daysBetween(d.startsAt, d.endsAt) >= 0, {
+    message: "End date must be on or after the start date.",
+    path: ["endsAt"],
+  })
+  .refine((d) => daysBetween(d.startsAt, d.endsAt) <= MAX_PROMO_DAYS, {
+    message: "Promotions can run for at most a month.",
+    path: ["endsAt"],
+  })
+  .refine((d) => d.type !== "percent" || d.value <= 100, {
+    message: "Percent-off must be between 1 and 100.",
+    path: ["value"],
+  });

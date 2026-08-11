@@ -5,6 +5,24 @@ import type { Booking } from "./booking";
 // migration; ids are now UUIDs. Phase 5 replaces these with the DB types.
 // ---------------------------------------------------------------------------
 
+export interface ServicePromo {
+  label: string;
+  type: "percent" | "fixed";
+  /** Present when type is "percent" — 1-100 */
+  percentOff?: number;
+  /** Present when type is "fixed" — decimal string in salon currency */
+  fixedPrice?: string;
+  /** Local calendar dates, "YYYY-MM-DD", inclusive */
+  startsAt: string;
+  endsAt: string;
+  /** True right now, based on today's date */
+  active: boolean;
+  /** Set but hasn't started yet */
+  scheduled: boolean;
+  /** Decimal string — what customers actually pay while it's active */
+  effectivePrice: string;
+}
+
 export interface Service {
   /** UUID; absent on freshly added, not-yet-saved rows */
   id?: string;
@@ -13,6 +31,8 @@ export interface Service {
   price: string; // decimal string in salon currency
   color: string;
   active: boolean;
+  /** At most one promotion at a time; null/undefined when none is set */
+  promo?: ServicePromo | null;
 }
 
 export interface StaffMember {

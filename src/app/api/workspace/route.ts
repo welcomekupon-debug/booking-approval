@@ -80,7 +80,7 @@ export async function GET() {
       clientName: salon.name,
       salonSlug: salon.slug,
       bookings: appointments.items.map((a) => mapAppointment(a, salon.timezone)),
-      services: services.map(mapService),
+      services: services.map((s) => mapService(s, salon.timezone)),
       staff: staff.map(mapStaff),
       customerMeta: customers.items.map(mapCustomerMeta),
       notifications: notifications.items.map((n) => ({

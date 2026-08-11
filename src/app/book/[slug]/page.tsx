@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getSalonBySlug } from "@/lib/repositories/salons";
 import { listServices, listStaff } from "@/lib/repositories/catalog";
 import { BookingFlow } from "@/components/public/BookingFlow";
+import { effectivePriceCents, isPromoActive } from "@/lib/services/pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -44,13 +45,18 @@ export default async function PublicBookingPage({ params }: Props) {
         timezone: salon.timezone,
         currency: salon.currency,
       }}
-      services={services.map((s) => ({
-        id: s.id,
-        name: s.name,
-        description: s.description,
-        durationMinutes: s.durationMinutes,
-        priceCents: s.priceCents,
-      }))}
+      services={services.map((s) => {
+        const promoActive = isPromoActive(s);
+        return {
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          durationMinutes: s.durationMinutes,
+          priceCents: effectivePriceCents(s),
+          originalPriceCents: promoActive ? s.priceCents : null,
+          promoLabel: promoActive ? s.promoLabel : null,
+        };
+      })}
       staff={staff.map((s) => ({ id: s.id, name: s.name }))}
     />
   );
