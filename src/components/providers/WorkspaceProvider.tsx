@@ -50,6 +50,7 @@ interface WorkspaceContextValue {
   isPlatformAdmin: boolean;
   impersonating: boolean;
   stopImpersonating: () => Promise<void>;
+  switchSalon: (salonId: string) => Promise<void>;
   refresh: () => Promise<void>;
   updateBooking: (id: string, fields: BookingUpdatePayload) => Promise<void>;
   createAppointment: (input: CreateAppointmentInput) => Promise<void>;
@@ -327,6 +328,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const switchSalon = useCallback(
+    async (salonId: string) => {
+      const res = await fetch("/api/salons/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salonId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Couldn't switch businesses.");
+      }
+      await refresh();
+    },
+    [refresh]
+  );
+
   const resolveChangeRequest = useCallback(
     async (id: string, action: "approve" | "decline") => {
       const res = await fetch(`/api/change-requests/${id}`, {
@@ -359,6 +376,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     isPlatformAdmin: data?.isPlatformAdmin ?? false,
     impersonating: data?.impersonating ?? false,
     stopImpersonating,
+    switchSalon,
     refresh,
     updateBooking,
     createAppointment,

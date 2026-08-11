@@ -10,6 +10,7 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { Tooltip } from "@/components/ui";
 import { CommandPalette } from "./CommandPalette";
 import { NotificationCenter } from "./NotificationCenter";
+import { SalonSwitcher } from "./SalonSwitcher";
 
 interface NavItem {
   href: string;
@@ -207,7 +208,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={`hidden lg:flex fixed ${impersonating ? "top-9 bottom-0" : "inset-y-0"} left-0 w-64 flex-col bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 z-30`}
       >
         <div className="px-5 pt-6 pb-5">
-          <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
+          <SalonSwitcher name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
         </div>
 
         <div className="px-3 flex-1 overflow-y-auto">
@@ -325,8 +326,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           }}
         >
           <aside className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-ink-900 border-r border-ink-100 dark:border-ink-800 p-5 animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <Logo name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
+            <div className="flex items-center justify-between gap-2 mb-6">
+              <div className="min-w-0 flex-1">
+                <SalonSwitcher name={settings.businessName || clientName} logoUrl={settings.logoUrl} />
+              </div>
               <button
                 onClick={() => setMobileNavOpen(false)}
                 className="p-2 rounded-xl text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-800"
