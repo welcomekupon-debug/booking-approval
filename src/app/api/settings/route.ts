@@ -11,7 +11,7 @@ import {
   replaceBusinessHours,
 } from "@/lib/repositories/hours";
 import { updateSettings } from "@/lib/repositories/settings";
-import { HOLIDAY_REASON } from "@/lib/legacy/mapper";
+import { HOLIDAY_REASON, toIsoDateInTz } from "@/lib/legacy/mapper";
 import { localDateTimeToUtc } from "@/lib/services/timezone";
 import { DAY_KEYS } from "@/types/app";
 import { BUSINESS_CATEGORIES } from "@/lib/roleLabels";
@@ -194,15 +194,43 @@ export async function PUT(request: NextRequest) {
     // National holidays (official: true) and the salon's own closures share
     // the same blocked_times mechanism, distinguished by isPublicHoliday —
     // that's what lets "clear my closures" leave national holidays alone.
+    //
+    // Dates are grouped by the salon's *local* calendar date (matching how
+    // they're written below and how the UI reads them back) — grouping by
+    // the raw UTC date would shift by a day for any non-UTC timezone and
+    // silently orphan rows. Grouping into arrays (not a single Map entry
+    // per date) also lets this self-heal any leftover duplicate rows from
+    // an earlier version of this route that only ever tracked one row per
+    // date: every save now collapses duplicates for the dates it touches.
     if (body.holidays) {
       const existing = (await listBlockedTimes(salonId)).filter(
         (b) => b.staffId === null && (b.reason === HOLIDAY_REASON || b.isPublicHoliday)
       );
-      const existingByDate = new Map(
-        existing.map((b) => [b.startsAt.toISOString().slice(0, 10), b])
-      );
+      const existingByDate = new Map<string, (typeof existing)[number][]>();
+      for (const b of existing) {
+        const iso = toIsoDateInTz(b.startsAt, tz);
+        const list = existingByDate.get(iso) ?? [];
+        list.push(b);
+        existingByDate.set(iso, list);
+      }
       const wanted = new Map(body.holidays.map((h) => [h.date, h]));
 
+      for (const [iso, rows] of Array.from(existingByDate.entries())) {
+        const h = wanted.get(iso);
+        if (!h) {
+          // No longer wanted — remove every row for that date, not just one.
+          for (const b of rows) await deleteBlockedTime(salonId, b.id);
+          continue;
+        }
+        if (rows.length > 1) {
+          // Duplicate rows for a date we're keeping — collapse to one,
+          // preferring a row whose official flag already matches.
+          const keep = rows.find((b) => b.isPublicHoliday === h.official) ?? rows[0];
+          for (const b of rows) {
+            if (b.id !== keep.id) await deleteBlockedTime(salonId, b.id);
+          }
+        }
+      }
       for (const [iso, h] of Array.from(wanted.entries())) {
         if (existingByDate.has(iso)) continue;
         await createBlockedTime({
@@ -213,9 +241,6 @@ export async function PUT(request: NextRequest) {
           reason: h.official && h.name ? h.name : HOLIDAY_REASON,
           isPublicHoliday: h.official,
         });
-      }
-      for (const [iso, block] of Array.from(existingByDate.entries())) {
-        if (!wanted.has(iso)) await deleteBlockedTime(salonId, block.id);
       }
     }
 

@@ -107,7 +107,7 @@ export function mapAppointment(
 }
 
 /** UTC instant → local "YYYY-MM-DD" in the given timezone. */
-function toIsoDateInTz(instant: Date, timezone: string): string {
+export function toIsoDateInTz(instant: Date, timezone: string): string {
   const w = utcToWall(instant, timezone);
   return `${w.year}-${pad(w.month)}-${pad(w.day)}`;
 }
@@ -190,16 +190,33 @@ export function mapSettings(
     }
   }
 
-  const holidays = blocks
-    .filter(
-      (b) => b.staffId === null && (b.reason === HOLIDAY_REASON || b.isPublicHoliday)
-    )
-    .map((b) => ({
-      date: b.startsAt.toISOString().slice(0, 10),
+  // Dates must be read back in the salon's local timezone (matching how
+  // they're written via localDateTimeToUtc) — slicing the raw UTC instant
+  // shifts the date by a day for any non-UTC timezone. Also collapse any
+  // leftover duplicate rows for the same local date (from an earlier bug)
+  // down to one entry so the UI never shows the same holiday twice; the
+  // settings PUT route physically removes the extra rows on next save.
+  const holidaysByDate = new Map<
+    string,
+    { date: string; name?: string; official: boolean }
+  >();
+  for (const b of blocks) {
+    if (b.staffId !== null) continue;
+    if (b.reason !== HOLIDAY_REASON && !b.isPublicHoliday) continue;
+    const date = toIsoDateInTz(b.startsAt, salon.timezone);
+    const candidate = {
+      date,
       name: b.isPublicHoliday ? (b.reason ?? undefined) : undefined,
       official: b.isPublicHoliday,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    };
+    const existing = holidaysByDate.get(date);
+    if (!existing || (candidate.official && !existing.official)) {
+      holidaysByDate.set(date, candidate);
+    }
+  }
+  const holidays = Array.from(holidaysByDate.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
 
   return {
     businessName: salon.name,
