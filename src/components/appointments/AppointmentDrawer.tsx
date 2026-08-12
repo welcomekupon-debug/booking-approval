@@ -59,7 +59,9 @@ export function AppointmentDrawer({
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [deciding, setDeciding] = useState<"Confirmed" | "Declined" | null>(null);
+  const [deciding, setDeciding] = useState<
+    "Confirmed" | "Declined" | "Completed" | "No-show" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [resolving, setResolving] = useState<"approve" | "decline" | null>(null);
@@ -117,7 +119,7 @@ export function AppointmentDrawer({
     }
   }
 
-  async function decide(next: "Confirmed" | "Declined") {
+  async function decide(next: "Confirmed" | "Declined" | "Completed" | "No-show") {
     if (!booking) return;
     setDeciding(next);
     setError(null);
@@ -296,15 +298,40 @@ export function AppointmentDrawer({
           </div>
         )}
         {status === "confirmed" && (
-          <Button
-            variant="secondary"
-            icon="x"
-            className="w-full mb-6"
-            loading={deciding === "Declined"}
-            onClick={() => decide("Declined")}
-          >
-            Cancel appointment
-          </Button>
+          <div className="flex flex-col gap-2 mb-6">
+            <div className="flex gap-2">
+              <Button
+                variant="success"
+                icon="check"
+                className="flex-1"
+                loading={deciding === "Completed"}
+                disabled={deciding !== null}
+                onClick={() => decide("Completed")}
+              >
+                Mark completed
+              </Button>
+              <Button
+                variant="secondary"
+                icon="x"
+                className="flex-1"
+                loading={deciding === "No-show"}
+                disabled={deciding !== null}
+                onClick={() => decide("No-show")}
+              >
+                No-show
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              icon="x"
+              className="w-full"
+              loading={deciding === "Declined"}
+              disabled={deciding !== null}
+              onClick={() => decide("Declined")}
+            >
+              Cancel appointment
+            </Button>
+          </div>
         )}
         {(status === "declined" || status === "cancelled") && (
           <Button

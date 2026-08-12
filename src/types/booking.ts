@@ -37,7 +37,7 @@ export interface ActivityItem {
   UpdatedAt: string;
 }
 
-export type BookingStatus = "Confirmed" | "Declined";
+export type BookingStatus = "Confirmed" | "Declined" | "Completed" | "No-show";
 
 /** Fields that can be edited on a booking via PATCH /api/bookings/[id] */
 export interface BookingUpdatePayload {

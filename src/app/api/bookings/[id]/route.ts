@@ -9,6 +9,7 @@ import {
   cancelAppointment,
   decideAppointment,
   editAppointment,
+  markOutcome,
   rescheduleAppointment,
   restoreAppointment,
 } from "@/lib/services/booking";
@@ -16,7 +17,7 @@ import { localDateTimeToUtc, utcToWall } from "@/lib/services/timezone";
 import { decimalToCents, legacyDateToIso } from "@/lib/legacy/mapper";
 
 const bookingUpdateSchema = z.strictObject({
-  status: z.enum(["Confirmed", "Declined"]).optional(),
+  status: z.enum(["Confirmed", "Declined", "Completed", "No-show"]).optional(),
   datum: z.string().trim().max(40).optional(),
   ura: z.string().trim().max(20).optional(),
   notes: z.string().trim().max(2000).optional(),
@@ -53,11 +54,14 @@ export async function PATCH(
 
     // ── Status transitions ───────────────────────────────────────────────
     if (body.status !== undefined) {
-      if (body.status !== "Confirmed" && body.status !== "Declined") {
-        throw ApiError.badRequest('Status must be "Confirmed" or "Declined".');
-      }
-
-      if (existing.status === "pending") {
+      if (body.status === "Completed" || body.status === "No-show") {
+        await markOutcome(
+          salonId,
+          id,
+          body.status === "Completed" ? "completed" : "no_show",
+          actor
+        );
+      } else if (existing.status === "pending") {
         await decideAppointment(
           salonId,
           id,

@@ -70,6 +70,7 @@ const legacySettings = z
     notifySmsReminder: z.boolean().optional(),
     notifySmsConfirmation: z.boolean().optional(),
     reminderHoursBefore: z.coerce.number().int().min(1).max(168).optional(),
+    reviewRequestsEnabled: z.boolean().optional(),
     onboardingComplete: z.boolean().optional(),
   });
 
@@ -167,6 +168,9 @@ export async function PUT(request: NextRequest) {
       }),
       ...(body.reminderHoursBefore !== undefined && {
         reminderHoursBefore: body.reminderHoursBefore,
+      }),
+      ...(body.reviewRequestsEnabled !== undefined && {
+        reviewRequestsEnabled: body.reviewRequestsEnabled,
       }),
       ...(body.onboardingComplete !== undefined && {
         onboardingComplete: body.onboardingComplete,

@@ -232,6 +232,7 @@ export function mapSettings(
     notifySmsReminder: s.notifySmsReminder,
     notifySmsConfirmation: s.notifySmsConfirmation,
     reminderHoursBefore: s.reminderHoursBefore,
+    reviewRequestsEnabled: s.reviewRequestsEnabled,
     onboardingComplete: s.onboardingComplete,
   };
 }

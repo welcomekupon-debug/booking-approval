@@ -674,6 +674,8 @@ export const settings = pgTable(
       .notNull()
       .default(true),
     reminderHoursBefore: integer("reminder_hours_before").notNull().default(24),
+    /** Client-controlled — staff can only send review requests while this is on. */
+    reviewRequestsEnabled: boolean("review_requests_enabled").notNull().default(true),
     onboardingComplete: boolean("onboarding_complete").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

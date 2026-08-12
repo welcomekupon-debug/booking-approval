@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { useWorkspace } from "@/components/providers/WorkspaceProvider";
 import {
   Button,
   Card,
@@ -9,6 +10,7 @@ import {
   Input,
   Skeleton,
   Toast,
+  Toggle,
   useAutoDismiss,
 } from "@/components/ui";
 import { Icon } from "@/components/ui/icons";
@@ -57,14 +59,28 @@ function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) 
 }
 
 export default function ReviewsPage() {
+  const { settings, saveSettings } = useWorkspace();
   const [data, setData] = useState<ReviewsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState(isoToday());
   const [sending, setSending] = useState(false);
+  const [togglingEnabled, setTogglingEnabled] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useAutoDismiss(toast, () => setToast(null));
+
+  async function toggleEnabled(v: boolean) {
+    setTogglingEnabled(true);
+    try {
+      await saveSettings({ reviewRequestsEnabled: v });
+      setToast(v ? "Review requests turned on" : "Review requests turned off");
+    } catch {
+      setToast("Couldn't update that setting");
+    } finally {
+      setTogglingEnabled(false);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -152,7 +168,20 @@ export default function ReviewsPage() {
             appointments are skipped.
           </p>
         </div>
-        <div className="px-6 py-5 flex flex-wrap items-center gap-3">
+        <div className="px-6 py-4 border-b border-ink-50 dark:border-ink-800">
+          <Toggle
+            checked={settings.reviewRequestsEnabled}
+            onChange={toggleEnabled}
+            disabled={togglingEnabled}
+            label="Review requests"
+            description="When off, staff can't send new review requests — existing feedback still shows below."
+          />
+        </div>
+        <div
+          className={`px-6 py-5 flex flex-wrap items-center gap-3 ${
+            settings.reviewRequestsEnabled ? "" : "opacity-50 pointer-events-none"
+          }`}
+        >
           <Input
             type="date"
             value={date}
@@ -160,7 +189,13 @@ export default function ReviewsPage() {
             onChange={(e) => setDate(e.target.value)}
             className="w-auto"
           />
-          <Button variant="primary" icon="send" loading={sending} onClick={sendRequests}>
+          <Button
+            variant="primary"
+            icon="send"
+            loading={sending}
+            disabled={!settings.reviewRequestsEnabled}
+            onClick={sendRequests}
+          >
             Send review requests
           </Button>
         </div>

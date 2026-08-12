@@ -14,6 +14,7 @@ import {
   type StaffRatingSummary,
 } from "@/lib/repositories/reviews";
 import { getSalonById } from "@/lib/repositories/salons";
+import { getSettings } from "@/lib/repositories/settings";
 import { emailService, formatEmailDate, toEmailSalonInfo } from "@/lib/services/email";
 import { buildReviewUrl, verifyAppointmentToken } from "@/lib/services/manageToken";
 import { localDateTimeToUtc } from "@/lib/services/timezone";
@@ -30,6 +31,13 @@ export async function sendReviewRequestsForDay(
   ctx: TenantContext,
   dateIso: string
 ): Promise<{ sent: number }> {
+  const settings = await getSettings(ctx.salon.id);
+  if (!settings.reviewRequestsEnabled) {
+    throw ApiError.badRequest(
+      "Review requests are turned off for this business — enable them on the Reviews page first."
+    );
+  }
+
   const tz = ctx.salon.timezone;
   const from = localDateTimeToUtc(dateIso, "00:00", tz);
   const to = localDateTimeToUtc(dateIso, "23:59", tz);

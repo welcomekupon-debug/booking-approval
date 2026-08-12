@@ -124,6 +124,8 @@ export interface BusinessSettings {
   notifySmsReminder: boolean;
   notifySmsConfirmation: boolean;
   reminderHoursBefore: number;
+  /** Client-controlled — staff can only send review requests while this is on. */
+  reviewRequestsEnabled: boolean;
   onboardingComplete: boolean;
 }
 
@@ -168,6 +170,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   notifySmsReminder: false,
   notifySmsConfirmation: false,
   reminderHoursBefore: 24,
+  reviewRequestsEnabled: true,
   onboardingComplete: false,
 };
 

@@ -130,6 +130,9 @@ function SettingsContent() {
   const [staffList, setStaffList] = useState<StaffMember[]>(staff);
   const [holidayFrom, setHolidayFrom] = useState("");
   const [holidayTo, setHolidayTo] = useState("");
+  const [knownHolidayNames, setKnownHolidayNames] = useState<Map<string, string>>(
+    new Map()
+  );
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -164,6 +167,39 @@ function SettingsContent() {
       .then((body) => setCountries(body.countries ?? []))
       .catch(() => setCountries([]));
   }, []);
+
+  // Live lookup of real public-holiday names for the configured country —
+  // used to classify National vs Your-closures below by what a date
+  // actually is, not just how it happened to get tagged when it was added
+  // (which can be wrong, e.g. a day closed before the country was set).
+  useEffect(() => {
+    if (!form.country) {
+      setKnownHolidayNames(new Map());
+      return;
+    }
+    const year = new Date().getFullYear();
+    const years = [year - 1, year, year + 1];
+    let cancelled = false;
+
+    Promise.all(
+      years.map((y) =>
+        fetch(`/api/holidays/suggestions?year=${y}&country=${form.country}`)
+          .then((res) => res.json())
+          .catch(() => ({ holidays: [] as { date: string; name: string }[] }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const map = new Map<string, string>();
+      for (const r of results) {
+        for (const h of r.holidays ?? []) map.set(h.date, h.name);
+      }
+      setKnownHolidayNames(map);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.country]);
   useEffect(() => {
     setGranularityMode(
       [15, 30, 60].includes(settings.slotGranularityMinutes)
@@ -303,19 +339,27 @@ function SettingsContent() {
     </Button>
   );
 
+  // A date counts as a national holiday if it was added that way OR it
+  // matches a real recognized holiday for the configured country — the
+  // second check makes this self-correcting even if a day got tagged wrong
+  // when it was added (e.g. closed via calendar before the preview loaded).
+  const isKnownHoliday = (h: { date: string; official: boolean }) =>
+    h.official || knownHolidayNames.has(h.date);
+
   const officialHolidays = useMemo(
     () =>
       form.holidays
-        .filter((h) => h.official)
+        .filter(isKnownHoliday)
+        .map((h) => ({ ...h, name: h.name ?? knownHolidayNames.get(h.date) }))
         .sort((a, b) => a.date.localeCompare(b.date)),
-    [form.holidays]
+    [form.holidays, knownHolidayNames]
   );
   const customHolidays = useMemo(
     () =>
       form.holidays
-        .filter((h) => !h.official)
+        .filter((h) => !isKnownHoliday(h))
         .sort((a, b) => a.date.localeCompare(b.date)),
-    [form.holidays]
+    [form.holidays, knownHolidayNames]
   );
 
   return (
@@ -678,7 +722,7 @@ function SettingsContent() {
                   {customHolidays.length > 0 && (
                     <button
                       onClick={() =>
-                        patch({ holidays: form.holidays.filter((h) => h.official) })
+                        patch({ holidays: form.holidays.filter(isKnownHoliday) })
                       }
                       className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 transition-colors"
                     >
