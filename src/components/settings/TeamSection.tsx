@@ -246,8 +246,8 @@ export function TeamSection({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="animate-fade-up">
-        <div className="relative z-20 px-6 pt-5 pb-4 border-b border-ink-50 dark:border-ink-800">
+      <Card className="relative z-20 animate-fade-up">
+        <div className="px-6 pt-5 pb-4 border-b border-ink-50 dark:border-ink-800">
           <div className="flex items-center gap-1">
             <h2 className="text-base font-bold text-ink-900 dark:text-ink-50">
               Team members
