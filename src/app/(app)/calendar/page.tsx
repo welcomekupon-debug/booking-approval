@@ -665,7 +665,6 @@ export default function CalendarPage() {
     <div>
       <PageHeader
         title="Calendar"
-        subtitle="Drag an appointment to reschedule it — changes save instantly."
         actions={
           <Button
             variant="secondary"

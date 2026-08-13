@@ -408,16 +408,13 @@ function SettingsContent() {
                     />
                   </Field>
                 </div>
-                <Field label="Business type" hint='Shown to customers, e.g. "Hair salon".'>
+                <Field label="Business type">
                   <Input
                     value={form.businessType}
                     onChange={(e) => patch({ businessType: e.target.value })}
                   />
                 </Field>
-                <Field
-                  label="Business category"
-                  hint="Personalizes role names across the app — e.g. Stylist vs Trainer vs Provider."
-                >
+                <Field label="Business category">
                   <Select
                     value={form.businessCategory}
                     onChange={(e) => patch({ businessCategory: e.target.value })}
@@ -429,10 +426,7 @@ function SettingsContent() {
                     ))}
                   </Select>
                 </Field>
-                <Field
-                  label="Country"
-                  hint="Used to suggest public holidays for your closures list."
-                >
+                <Field label="Country">
                   <Select
                     value={form.country}
                     onChange={(e) => patch({ country: e.target.value })}
@@ -464,17 +458,14 @@ function SettingsContent() {
                     onChange={(e) => patch({ website: e.target.value })}
                   />
                 </Field>
-                <Field
-                  label="Google review link"
-                  hint="Shown to customers who leave a high internal rating."
-                >
+                <Field label="Google review link">
                   <Input
                     value={form.googleReviewUrl}
                     placeholder="https://g.page/r/…/review"
                     onChange={(e) => patch({ googleReviewUrl: e.target.value })}
                   />
                 </Field>
-                <Field label="Timezone" hint="All appointment times use this.">
+                <Field label="Timezone">
                   <Select
                     value={form.timezone}
                     onChange={(e) => patch({ timezone: e.target.value })}
@@ -639,7 +630,6 @@ function SettingsContent() {
 
               <SectionCard
                 title="Holidays & closures"
-                description="Days you're closed outside the weekly schedule."
                 footer={saveBtn(() => persistSettings())}
               >
                 <div className="flex flex-wrap items-end gap-2 mb-2">
@@ -1066,7 +1056,6 @@ function SettingsContent() {
           {tab === "booking" && (
             <SectionCard
               title="Booking preferences"
-              description="How new requests behave."
               footer={saveBtn(() => persistSettings())}
             >
               <div className="flex flex-col gap-4 max-w-md">
@@ -1090,7 +1079,7 @@ function SettingsContent() {
                 />
                 <Field
                   label="Booking time slots"
-                  hint="How tightly available times are spaced on your booking page and calendar — independent of how long a service actually takes."
+                  hint="Choose how often times show up for customers to pick from."
                 >
                   <div className="flex flex-col gap-3">
                     <Segmented

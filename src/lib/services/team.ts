@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/errors";
 import type { Invitation, Membership, MembershipRole, User } from "@/lib/db/types";
 import {
   createInvitation,
+  deleteInvitation as deleteInvitationRow,
   listInvitations,
   markInvitationAccepted,
   revokeInvitation as revokeInvitationRow,
@@ -93,18 +94,37 @@ export async function inviteMember(
   return invitation;
 }
 
+/**
+ * Get rid of an invite row, whatever state it's in. A pending invite gets
+ * revoked (soft — the link stops working, but the row stays as a record).
+ * A dead one (already revoked/expired, nothing left to revoke) gets removed
+ * outright, since at that point it's just clutter in the list.
+ */
 export async function revokeInvite(
   ctx: TenantContext,
   invitationId: string
 ): Promise<void> {
-  const ok = await revokeInvitationRow(ctx.salon.id, invitationId);
-  if (!ok) throw ApiError.notFound("Invite not found, or already used.");
+  const revoked = await revokeInvitationRow(ctx.salon.id, invitationId);
+  if (revoked) {
+    await recordAudit(db, {
+      salonId: ctx.salon.id,
+      actorType: "user",
+      actorUserId: ctx.user.id,
+      action: "team.invite_revoked",
+      entityType: "invitation",
+      entityId: invitationId,
+    });
+    return;
+  }
+
+  const dismissed = await deleteInvitationRow(ctx.salon.id, invitationId);
+  if (!dismissed) throw ApiError.notFound("Invite not found, or already used.");
 
   await recordAudit(db, {
     salonId: ctx.salon.id,
     actorType: "user",
     actorUserId: ctx.user.id,
-    action: "team.invite_revoked",
+    action: "team.invite_dismissed",
     entityType: "invitation",
     entityId: invitationId,
   });

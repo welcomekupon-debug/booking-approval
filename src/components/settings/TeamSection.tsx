@@ -474,6 +474,16 @@ export function TeamSection({
                       </button>
                     </>
                   )}
+                  {inv.status !== "pending" && (
+                    <button
+                      onClick={() => revokeInvite(inv.id)}
+                      disabled={busyId === inv.id}
+                      className="p-2 rounded-xl text-ink-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                      aria-label={`Remove ${inv.email} from the list`}
+                    >
+                      <Icon name="x" className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

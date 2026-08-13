@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, type DbOrTx } from "@/lib/db";
 import { invitations, salons, users } from "@/lib/db/schema";
 import type { Invitation, MembershipRole } from "@/lib/db/types";
@@ -123,6 +123,24 @@ export async function revokeInvitation(
         eq(invitations.id, id),
         eq(invitations.salonId, salonId),
         eq(invitations.status, "pending")
+      )
+    )
+    .returning({ id: invitations.id });
+  return !!row;
+}
+
+/** Hard-delete a dead (already revoked/expired) invite row — never a pending one. */
+export async function deleteInvitation(
+  salonId: string,
+  id: string
+): Promise<boolean> {
+  const [row] = await db
+    .delete(invitations)
+    .where(
+      and(
+        eq(invitations.id, id),
+        eq(invitations.salonId, salonId),
+        ne(invitations.status, "pending")
       )
     )
     .returning({ id: invitations.id });
