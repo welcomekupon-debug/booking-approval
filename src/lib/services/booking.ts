@@ -248,6 +248,11 @@ export async function cancelAppointment(
   if (existing.status !== "confirmed" && existing.status !== "pending") {
     throw ApiError.conflict("Only pending or confirmed appointments can be cancelled.");
   }
+  if (existing.status === "confirmed" && existing.endsAt <= new Date()) {
+    throw ApiError.badRequest(
+      "This appointment already happened — it can't be cancelled anymore."
+    );
+  }
 
   const updated = await db.transaction(async (tx) => {
     const updated = await updateAppointment(tx, salonId, appointmentId, {
@@ -514,7 +519,13 @@ export async function restoreAppointment(
   });
 }
 
-/** Post-visit bookkeeping. */
+/**
+ * Post-visit bookkeeping. Starting from "confirmed" is the normal path (set
+ * manually, or once auto-complete has already flipped it to "completed");
+ * "completed" and "no_show" are also accepted as starting points so staff
+ * can correct a mistaken outcome from the appointment details view without
+ * a separate "undo" action.
+ */
 export async function markOutcome(
   salonId: string,
   appointmentId: string,
@@ -523,8 +534,14 @@ export async function markOutcome(
 ): Promise<Appointment> {
   const existing = await getAppointmentById(salonId, appointmentId);
   if (!existing) throw ApiError.notFound("Appointment not found.");
-  if (existing.status !== "confirmed") {
-    throw ApiError.conflict("Only confirmed appointments can be marked.");
+  if (
+    existing.status !== "confirmed" &&
+    existing.status !== "completed" &&
+    existing.status !== "no_show"
+  ) {
+    throw ApiError.conflict(
+      "Only confirmed, completed, or no-show appointments can be marked."
+    );
   }
 
   return db.transaction(async (tx) => {

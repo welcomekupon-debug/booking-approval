@@ -41,6 +41,64 @@ interface TeamResponse {
   invitations: InviteRow[];
 }
 
+/**
+ * Hover cloud explaining what each non-owner role can and can't do, sourced
+ * from the actual `requireRole` gates in the API routes — not just a guess.
+ * Owner is deliberately left out since it can do everything.
+ */
+function RolePermissionsInfo({
+  labels,
+}: {
+  labels: Record<MembershipRole, string>;
+}) {
+  const entries: { role: MembershipRole; description: string }[] = [
+    {
+      role: "manager",
+      description:
+        "Everything below, plus business settings, services & pricing, promotions, the business logo, and inviting or managing the team.",
+    },
+    {
+      role: "stylist",
+      description:
+        "Can manage appointments and customers. Reviews are limited to the ones tied to their own linked profile.",
+    },
+    {
+      role: "receptionist",
+      description:
+        "Can manage appointments and customers. Reviews are limited to the ones tied to their own linked profile.",
+    },
+  ];
+
+  return (
+    <span className="relative inline-flex group/info">
+      <button
+        type="button"
+        className="p-1 rounded-full text-ink-300 hover:text-gold-600 hover:bg-gold-50 dark:hover:bg-gold-900/20 transition-colors"
+        aria-label="What can each role do?"
+      >
+        <Icon name="shield" className="w-3.5 h-3.5" />
+      </button>
+      <span className="pointer-events-none absolute left-0 top-full mt-2 z-40 hidden group-hover/info:block group-focus-within/info:block w-72 rounded-xl bg-ink-900 dark:bg-ink-50 px-4 py-3.5 shadow-pop animate-fade-in">
+        <span className="block text-[10px] font-bold uppercase tracking-widest text-white/50 dark:text-ink-900/50 mb-2.5">
+          What each role can do
+        </span>
+        <span className="flex flex-col gap-2.5">
+          {entries.map((e) => (
+            <span key={e.role} className="block">
+              <span className="block text-xs font-bold text-white dark:text-ink-900">
+                {labels[e.role]}
+              </span>
+              <span className="block text-[11px] text-white/75 dark:text-ink-900/75 leading-snug mt-0.5">
+                {e.description}
+              </span>
+            </span>
+          ))}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function initials(name: string | null, email: string): string {
   const source = name?.trim() || email;
   const parts = source.split(/\s+/).filter(Boolean);
@@ -190,9 +248,12 @@ export function TeamSection({
     <div className="flex flex-col gap-6">
       <Card className="animate-fade-up">
         <div className="px-6 pt-5 pb-4 border-b border-ink-50 dark:border-ink-800">
-          <h2 className="text-base font-bold text-ink-900 dark:text-ink-50">
-            Team members
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 className="text-base font-bold text-ink-900 dark:text-ink-50">
+              Team members
+            </h2>
+            <RolePermissionsInfo labels={labels} />
+          </div>
           <p className="text-xs text-ink-400 mt-1">
             Everyone with access to this account, and what they can do.
           </p>

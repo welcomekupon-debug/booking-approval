@@ -338,6 +338,28 @@ export async function markReviewRequested(
     );
 }
 
+/**
+ * Flip any confirmed appointment whose end time has already passed over to
+ * "completed", in bulk. Called lazily whenever a salon's workspace loads —
+ * no cron needed, same idea as the promo-pricing window being computed at
+ * read time rather than expired by a background job. Returns the number of
+ * rows flipped (0 most of the time — nothing to log if nothing happened).
+ */
+export async function autoCompletePastAppointments(salonId: string): Promise<number> {
+  const rows = await db
+    .update(appointments)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(
+      and(
+        eq(appointments.salonId, salonId),
+        eq(appointments.status, "confirmed"),
+        lte(appointments.endsAt, new Date())
+      )
+    )
+    .returning({ id: appointments.id });
+  return rows.length;
+}
+
 /** Bookings + revenue per calendar bucket for charts, computed in SQL. */
 export async function seriesByPeriod(
   salonId: string,

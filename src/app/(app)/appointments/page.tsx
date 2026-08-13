@@ -241,14 +241,21 @@ function AppointmentsContent() {
 
   const filtered = useMemo(() => {
     const list = filterBookings(bookings, query, status, date);
+    const now = Date.now();
     return [...list].sort((a, b) => {
-      // Pending first, then soonest date
+      // Pending always floats to the top — it needs a decision.
       const pa = normStatus(a) === "pending" ? 0 : 1;
       const pb = normStatus(b) === "pending" ? 0 : 1;
       if (pa !== pb) return pa - pb;
+
+      // Then: the next upcoming appointment leads, soonest first; appointments
+      // that already happened trail behind, most-recent-first.
       const da = bookingDateTime(a.Datum, a.Ura)?.getTime() ?? Infinity;
       const db = bookingDateTime(b.Datum, b.Ura)?.getTime() ?? Infinity;
-      return da - db;
+      const futureA = da >= now;
+      const futureB = db >= now;
+      if (futureA !== futureB) return futureA ? -1 : 1;
+      return futureA ? da - db : db - da;
     });
   }, [bookings, query, status, date]);
 

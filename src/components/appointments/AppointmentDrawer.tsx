@@ -17,7 +17,7 @@ import {
   statusTone,
 } from "@/components/ui";
 import { Icon } from "@/components/ui/icons";
-import { parseBookingDate, toSheetDate } from "@/lib/dates";
+import { bookingDateTime, parseBookingDate, toSheetDate } from "@/lib/dates";
 import { normStatus } from "@/lib/stats";
 import type { Booking } from "@/types/booking";
 
@@ -95,6 +95,15 @@ export function AppointmentDrawer({
   if (!booking) return null;
 
   const status = normStatus(booking);
+
+  // Cancelling only makes sense for something that hasn't happened yet —
+  // once the appointment's end time has passed, the server rejects a cancel
+  // anyway (it auto-completes on the next load), so hide the button rather
+  // than let staff hit an error.
+  const start = bookingDateTime(booking.Datum, booking.Ura);
+  const durationMinutes = parseInt(booking.Duration, 10) || 0;
+  const end = start ? new Date(start.getTime() + durationMinutes * 60_000) : null;
+  const isPast = end !== null && end.getTime() <= Date.now();
 
   async function save() {
     if (!booking) return;
@@ -321,17 +330,43 @@ export function AppointmentDrawer({
                 No-show
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              icon="x"
-              className="w-full"
-              loading={deciding === "Declined"}
-              disabled={deciding !== null}
-              onClick={() => decide("Declined")}
-            >
-              Cancel appointment
-            </Button>
+            {!isPast && (
+              <Button
+                variant="ghost"
+                icon="x"
+                className="w-full"
+                loading={deciding === "Declined"}
+                disabled={deciding !== null}
+                onClick={() => decide("Declined")}
+              >
+                Cancel appointment
+              </Button>
+            )}
           </div>
+        )}
+        {status === "completed" && (
+          <Button
+            variant="secondary"
+            icon="x"
+            className="w-full mb-6"
+            loading={deciding === "No-show"}
+            disabled={deciding !== null}
+            onClick={() => decide("No-show")}
+          >
+            Mark as no-show instead
+          </Button>
+        )}
+        {status === "no-show" && (
+          <Button
+            variant="success"
+            icon="check"
+            className="w-full mb-6"
+            loading={deciding === "Completed"}
+            disabled={deciding !== null}
+            onClick={() => decide("Completed")}
+          >
+            Mark as completed instead
+          </Button>
         )}
         {(status === "declined" || status === "cancelled") && (
           <Button

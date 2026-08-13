@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { useWorkspace } from "@/components/providers/WorkspaceProvider";
@@ -25,7 +25,7 @@ import {
   normStatus,
   type TrendStat,
 } from "@/lib/stats";
-import { getRecentActivity } from "@/lib/activity";
+import { getRecentActivity, type RecentReview } from "@/lib/activity";
 import { formatRelativeTime } from "@/lib/relativeTime";
 import { bookingDateTime, isSameDay, longDate } from "@/lib/dates";
 
@@ -116,6 +116,34 @@ export default function DashboardPage() {
     useWorkspace();
   const [range, setRange] = useState<"30" | "90">("30");
   const [acting, setActing] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<RecentReview[]>([]);
+
+  // Recent activity folds in new reviews alongside booking decisions — a
+  // lightweight fetch of its own since reviews aren't part of the workspace
+  // bootstrap payload. The service layer already scopes what this viewer is
+  // allowed to see (owner/manager see all, stylists only their own).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/reviews")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.reviews) return;
+        setReviews(
+          body.reviews.map(
+            (r: { id: string; customerName: string; rating: number; createdAt: string }) => ({
+              id: r.id,
+              customerName: r.customerName,
+              rating: r.rating,
+              createdAt: r.createdAt,
+            })
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => computeDashboardStats(bookings), [bookings]);
   const series = useMemo(
@@ -126,7 +154,10 @@ export default function DashboardPage() {
     () => bookingsByHour(bookings, businessHourRange(settings.hours)),
     [bookings, settings.hours]
   );
-  const activity = useMemo(() => getRecentActivity(bookings, 8), [bookings]);
+  const activity = useMemo(
+    () => getRecentActivity(bookings, reviews, 8),
+    [bookings, reviews]
+  );
 
   const todaysSchedule = useMemo(() => {
     const now = new Date();
@@ -461,32 +492,42 @@ export default function DashboardPage() {
             <EmptyState
               icon="clock"
               title="No activity yet"
-              description="Decisions you make on requests will show up here."
+              description="Decisions you make on requests and new reviews will show up here."
             />
           ) : (
             <div className="flex flex-col">
               {activity.map((a) => {
-                const activityStatus = a.Status.trim().toLowerCase();
-                const confirmed = activityStatus === "confirmed";
+                const isReview = a.type === "review";
+                const activityStatus = a.type === "booking" ? a.Status.trim().toLowerCase() : "";
+                const confirmed = a.type === "booking" && activityStatus === "confirmed";
                 return (
                   <div
-                    key={`${a.id}-${a.UpdatedAt}`}
+                    key={`${a.type}-${a.id}-${a.UpdatedAt}`}
                     className="flex items-center gap-3 py-2.5 border-b border-ink-50 dark:border-ink-800/60 last:border-0"
                   >
                     <span
                       className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                        confirmed
-                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
-                          : "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"
+                        isReview
+                          ? "bg-gold-50 text-gold-600 dark:bg-gold-900/30 dark:text-gold-300"
+                          : confirmed
+                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300"
                       }`}
                     >
-                      <Icon name={confirmed ? "check" : "x"} className="w-3.5 h-3.5" />
+                      <Icon
+                        name={isReview ? "star" : confirmed ? "check" : "x"}
+                        className="w-3.5 h-3.5"
+                      />
                     </span>
                     <p className="text-[13px] text-ink-600 dark:text-ink-300 min-w-0 flex-1 truncate">
                       <span className="font-semibold text-ink-900 dark:text-ink-100">
                         {a.Ime}
                       </span>{" "}
-                      {confirmed ? "confirmed" : activityStatus}
+                      {isReview
+                        ? `left a ${a.rating}-star review`
+                        : confirmed
+                          ? "confirmed"
+                          : activityStatus}
                     </p>
                     <span className="text-[11px] text-ink-300 dark:text-ink-500 shrink-0">
                       {formatRelativeTime(a.UpdatedAt)}

@@ -30,12 +30,24 @@ export interface Booking {
   StaffId: string;
 }
 
-export interface ActivityItem {
+export interface BookingActivityItem {
+  type: "booking";
   id: string;
   Ime: string;
   Status: string;
   UpdatedAt: string;
 }
+
+export interface ReviewActivityItem {
+  type: "review";
+  id: string;
+  /** Customer who left the review */
+  Ime: string;
+  rating: number;
+  UpdatedAt: string;
+}
+
+export type ActivityItem = BookingActivityItem | ReviewActivityItem;
 
 export type BookingStatus = "Confirmed" | "Declined" | "Completed" | "No-show";
 

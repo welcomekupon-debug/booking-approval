@@ -2,7 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { handleRoute } from "@/lib/api";
 import { getTenantContext } from "@/lib/auth/context";
-import { listAppointments } from "@/lib/repositories/appointments";
+import {
+  autoCompletePastAppointments,
+  listAppointments,
+} from "@/lib/repositories/appointments";
 import { listServices, listStaff } from "@/lib/repositories/catalog";
 import { listCustomers } from "@/lib/repositories/customers";
 import { listBlockedTimes, listBusinessHours } from "@/lib/repositories/hours";
@@ -44,6 +47,11 @@ export async function GET() {
     }
 
     const { salon } = ctx;
+
+    // Lazily flip any confirmed appointment whose end time has passed over
+    // to "completed" before reading the list back — no cron needed, this
+    // just needs to have run once by the time anyone looks at the data.
+    await autoCompletePastAppointments(salon.id);
 
     // Bounded window: everything upcoming (1 year) + 1 year of history.
     const now = Date.now();
