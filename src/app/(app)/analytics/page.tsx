@@ -183,8 +183,16 @@ export default function AnalyticsPage() {
           <KpiTile
             label="Confirmation rate"
             value={
-              stats.confirmed + stats.cancelled > 0
-                ? `${Math.round((stats.confirmed / (stats.confirmed + stats.cancelled)) * 100)}%`
+              // "Accepted" spans confirmed/completed/no-show — all three started
+              // as a decision to accept the request; only decline/cancel means
+              // the request was turned down. Completed appointments must count
+              // here too, since confirmed ones auto-complete once they're over.
+              stats.confirmed + stats.completed + stats.noShow + stats.cancelled > 0
+                ? `${Math.round(
+                    ((stats.confirmed + stats.completed + stats.noShow) /
+                      (stats.confirmed + stats.completed + stats.noShow + stats.cancelled)) *
+                      100
+                  )}%`
                 : "—"
             }
             sub="of decided requests"
@@ -196,7 +204,7 @@ export default function AnalyticsPage() {
                 ? currency.format(stats.revenue.value)
                 : `${stats.occupancyRate}%`
             }
-            sub={settings.revenueEnabled ? "confirmed appointments" : "next 7 days"}
+            sub={settings.revenueEnabled ? "confirmed & completed" : "next 7 days"}
           />
         </div>
       )}

@@ -270,7 +270,7 @@ export default function DashboardPage() {
           <StatCard label="Today" value={stats.todayCount} icon="clock" accent hint="appointments today" delay={0} href="/calendar" />
           <StatCard label="Upcoming" value={stats.upcoming} icon="calendar" hint="from tomorrow" delay={40} href="/appointments?date=upcoming" />
           <StatCard label="Pending" value={stats.pending} icon="bell" hint="awaiting review" delay={80} href="/appointments?status=pending" />
-          <StatCard label="Confirmed" value={stats.confirmed} icon="check" hint="all time" delay={120} href="/appointments?status=confirmed" />
+          <StatCard label="Confirmed" value={stats.confirmed} icon="check" hint="upcoming" delay={120} href="/appointments?status=confirmed" />
           <StatCard label="Cancelled" value={stats.cancelled} icon="x" hint="declined + cancelled, all time" delay={160} href="/appointments" />
           {settings.revenueEnabled && (
             <StatCard
@@ -405,7 +405,9 @@ export default function DashboardPage() {
               centerLabel="Total"
               segments={[
                 { label: "Confirmed", value: stats.confirmed, color: "#10B981" },
+                { label: "Completed", value: stats.completed, color: "#0EA5E9" },
                 { label: "Pending", value: stats.pending, color: "#F59E0B" },
+                { label: "No-show", value: stats.noShow, color: "#FB923C" },
                 { label: "Cancelled", value: stats.cancelled, color: "#F43F5E" },
               ]}
             />

@@ -25,6 +25,8 @@ export interface DashboardStats {
   confirmed: number;
   pending: number;
   cancelled: number;
+  completed: number;
+  noShow: number;
   revenue: TrendStat; // this month vs last month
   newCustomers: TrendStat; // this month vs last month
   repeatCustomers: number;
@@ -38,11 +40,17 @@ function pctDelta(value: number, previous: number): number | null {
   return Math.round(((value - previous) / previous) * 100);
 }
 
-/** Sum of Price for confirmed bookings within [from, to) */
+/**
+ * Sum of Price for bookings that actually happened (or still will) within
+ * [from, to) — confirmed (upcoming) and completed (already happened, since
+ * confirmed appointments auto-complete once their end time passes). No-shows
+ * and cancellations never generated revenue, so they're excluded.
+ */
 function revenueBetween(bookings: Booking[], from: Date, to: Date): number {
   let sum = 0;
   for (const b of bookings) {
-    if (normStatus(b) !== "confirmed") continue;
+    const s = normStatus(b);
+    if (s !== "confirmed" && s !== "completed") continue;
     const d = parseBookingDate(b.Datum);
     if (!d || d < from || d >= to) continue;
     const price = parseFloat(String(b.Price).replace(",", "."));
@@ -81,6 +89,8 @@ export function computeDashboardStats(bookings: Booking[]): DashboardStats {
   let confirmed = 0;
   let pending = 0;
   let cancelled = 0;
+  let completed = 0;
+  let noShow = 0;
   let weekCount = 0;
   let lastWeekCount = 0;
   let monthCount = 0;
@@ -91,6 +101,8 @@ export function computeDashboardStats(bookings: Booking[]): DashboardStats {
     if (status === "pending") pending++;
     else if (status === "confirmed") confirmed++;
     else if (status === "declined" || status === "cancelled") cancelled++;
+    else if (status === "completed") completed++;
+    else if (status === "no-show") noShow++;
 
     const d = parseBookingDate(b.Datum);
     if (!d) continue;
@@ -148,6 +160,8 @@ export function computeDashboardStats(bookings: Booking[]): DashboardStats {
     confirmed,
     pending,
     cancelled,
+    completed,
+    noShow,
     revenue: { value: revenue, previous: revenuePrev, delta: pctDelta(revenue, revenuePrev) },
     newCustomers: {
       value: newCustomers,
