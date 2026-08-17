@@ -58,6 +58,7 @@ export type NewInvitation = typeof invitations.$inferInsert;
 export type NewReview = typeof reviews.$inferInsert;
 
 export type MembershipRole = Membership["role"];
+export type SalonPlan = Salon["plan"];
 export type AppointmentStatus = Appointment["status"];
 export type AppointmentSource = Appointment["source"];
 export type ChangeRequestType = AppointmentChangeRequest["type"];

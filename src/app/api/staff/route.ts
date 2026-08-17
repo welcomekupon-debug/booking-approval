@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { handleRoute } from "@/lib/api";
 import { requireRole, requireTenant } from "@/lib/auth/context";
+import { ApiError } from "@/lib/errors";
+import { resolveEntitlements } from "@/lib/entitlements";
 import {
   createStaff,
   listStaff,
@@ -36,6 +38,24 @@ export async function PUT(request: NextRequest) {
 
     const existing = await listStaff(salonId, { includeInactive: true });
     const incomingIds = new Set(incoming.map((s) => s.id).filter(Boolean));
+
+    // Only block a save that *increases* the active count past the cap —
+    // never disrupts an account already over the limit (e.g. after a
+    // downgrade) from making unrelated edits or trimming staff down.
+    const entitlements = resolveEntitlements(ctx.salon);
+    const activeCount = incoming.filter((s) => s.active).length;
+    const existingActiveCount = existing.filter((s) => s.isActive).length;
+    if (
+      entitlements.maxStaff !== null &&
+      activeCount > entitlements.maxStaff &&
+      activeCount > existingActiveCount
+    ) {
+      throw ApiError.forbidden(
+        `Your plan allows up to ${entitlements.maxStaff} active staff member${
+          entitlements.maxStaff === 1 ? "" : "s"
+        }. Deactivate someone first, or upgrade your plan.`
+      );
+    }
 
     for (const row of incoming) {
       const fields = {

@@ -214,7 +214,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ staff }),
       });
-      if (!res.ok) throw new Error("Failed to save staff.");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to save staff.");
+      }
       await refresh();
     },
     [refresh]

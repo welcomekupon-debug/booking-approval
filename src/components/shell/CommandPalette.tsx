@@ -32,11 +32,19 @@ export function CommandPalette({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { bookings, customers, services, staff } = useWorkspace();
+  const { bookings, customers, services, staff, settings } = useWorkspace();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const navResults = useMemo(
+    () =>
+      settings.entitlements.analytics
+        ? NAV_RESULTS
+        : NAV_RESULTS.filter((n) => n.href !== "/analytics"),
+    [settings.entitlements.analytics]
+  );
 
   useEffect(() => {
     if (open) {
@@ -49,11 +57,11 @@ export function CommandPalette({
   const results = useMemo<Result[]>(() => {
     const q = query.trim().toLowerCase();
 
-    if (!q) return NAV_RESULTS;
+    if (!q) return navResults;
 
     const out: Result[] = [];
 
-    for (const nav of NAV_RESULTS) {
+    for (const nav of navResults) {
       if (nav.title.toLowerCase().includes(q)) out.push(nav);
     }
 

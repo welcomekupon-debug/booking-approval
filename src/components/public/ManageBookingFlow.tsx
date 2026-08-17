@@ -29,6 +29,7 @@ interface SalonInfo {
   logoUrl: string | null;
   timezone: string;
   allowCancellation: boolean;
+  selfServiceEnabled: boolean;
 }
 
 interface PendingRequest {
@@ -232,36 +233,43 @@ export function ManageBookingFlow({
             </p>
           </div>
         ) : view === "view" ? (
-          <div className="animate-fade-up flex flex-col gap-3">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => {
-                setSlot(null);
-                setError(null);
-                setView("reschedule");
-              }}
-            >
-              Suggest a new time
-              <Icon name="arrowRight" className="w-4 h-4" />
-            </Button>
-            {salon.allowCancellation ? (
+          !salon.selfServiceEnabled ? (
+            <p className="text-sm text-ink-400 text-center py-10">
+              To reschedule or cancel this booking, please contact {salon.name}{" "}
+              directly.
+            </p>
+          ) : (
+            <div className="animate-fade-up flex flex-col gap-3">
               <Button
-                variant="secondary"
+                variant="primary"
                 size="lg"
                 onClick={() => {
+                  setSlot(null);
                   setError(null);
-                  setView("cancel");
+                  setView("reschedule");
                 }}
               >
-                Request cancellation
+                Suggest a new time
+                <Icon name="arrowRight" className="w-4 h-4" />
               </Button>
-            ) : (
-              <p className="text-xs text-ink-400 text-center mt-2">
-                To cancel this booking, please contact {salon.name} directly.
-              </p>
-            )}
-          </div>
+              {salon.allowCancellation ? (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => {
+                    setError(null);
+                    setView("cancel");
+                  }}
+                >
+                  Request cancellation
+                </Button>
+              ) : (
+                <p className="text-xs text-ink-400 text-center mt-2">
+                  To cancel this booking, please contact {salon.name} directly.
+                </p>
+              )}
+            </div>
+          )
         ) : view === "cancel" ? (
           <div className="animate-fade-up flex flex-col gap-4">
             <h2 className="text-lg font-bold text-ink-900 dark:text-ink-50">

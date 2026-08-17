@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db, type DbOrTx } from "@/lib/db";
 import { memberships, salons, settings, users } from "@/lib/db/schema";
-import type { Salon } from "@/lib/db/types";
+import type { Salon, SalonPlan } from "@/lib/db/types";
 
 /** Public lookup for /book/{slug}. */
 export async function getSalonBySlug(slug: string): Promise<Salon | null> {
@@ -39,6 +39,30 @@ export async function updateSalon(
       | "googleReviewUrl"
     >
   >
+): Promise<Salon> {
+  const [row] = await db
+    .update(salons)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(salons.id, salonId))
+    .returning();
+  return row;
+}
+
+/**
+ * Platform-admin only — changes a salon's subscription tier and/or its
+ * Custom-plan entitlement overrides (the latter are ignored by
+ * `resolveEntitlements` unless `plan` is "custom", but can be set ahead of
+ * or independently from the plan switch).
+ */
+export async function updateSalonPlan(
+  salonId: string,
+  patch: {
+    plan?: SalonPlan;
+    customMaxStaff?: number | null;
+    customAnalytics?: boolean;
+    customSelfServiceBooking?: boolean;
+    customApiAccess?: boolean;
+  }
 ): Promise<Salon> {
   const [row] = await db
     .update(salons)

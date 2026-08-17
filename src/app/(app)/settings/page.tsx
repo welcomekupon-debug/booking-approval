@@ -29,6 +29,7 @@ import {
   type StaffMember,
 } from "@/types/app";
 import { isoToDisplayDate } from "@/lib/dates";
+import { PLAN_DETAILS } from "@/lib/plans";
 
 type Tab =
   | "business"
@@ -126,6 +127,29 @@ function SettingsContent() {
 
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "business");
   const [form, setForm] = useState<BusinessSettings>(settings);
+
+  const currentPlan =
+    settings.plan === "custom"
+      ? {
+          label: "Custom plan",
+          priceMonthly: null as number | null,
+          tagline: "A plan tailored to what you need — set up with your account manager.",
+          features: [
+            settings.entitlements.maxStaff === null
+              ? "Unlimited staff"
+              : `Up to ${settings.entitlements.maxStaff} staff member${settings.entitlements.maxStaff === 1 ? "" : "s"}`,
+            settings.entitlements.analytics
+              ? "Analytics dashboard and CSV export"
+              : null,
+            settings.entitlements.selfServiceBooking
+              ? "Self-service reschedule and cancel links for customers"
+              : null,
+            settings.entitlements.apiAccess
+              ? "API key access for automations"
+              : null,
+          ].filter((f): f is string => f !== null),
+        }
+      : { ...PLAN_DETAILS[settings.plan], priceMonthly: PLAN_DETAILS[settings.plan].priceMonthly as number | null };
   const [serviceList, setServiceList] = useState<Service[]>(services);
   const [staffList, setStaffList] = useState<StaffMember[]>(staff);
   const [holidayFrom, setHolidayFrom] = useState("");
@@ -326,8 +350,8 @@ function SettingsContent() {
     try {
       await saveStaff(staffList.filter((s) => s.name.trim()));
       setToast("Staff saved");
-    } catch {
-      setToast("Couldn't save — please try again");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Couldn't save — please try again");
     } finally {
       setSaving(false);
     }
@@ -764,7 +788,11 @@ function SettingsContent() {
           {tab === "staff" && (
             <SectionCard
               title="Staff members"
-              description="Assign appointments to team members and compare workloads in Analytics."
+              description={
+                settings.entitlements.maxStaff !== null
+                  ? `Assign appointments to team members and compare workloads in Analytics. Your plan includes ${settings.entitlements.maxStaff} active staff seat${settings.entitlements.maxStaff === 1 ? "" : "s"}.`
+                  : "Assign appointments to team members and compare workloads in Analytics."
+              }
               footer={saveBtn(persistStaff)}
             >
               <div className="flex flex-col gap-3">
@@ -816,6 +844,10 @@ function SettingsContent() {
                 <Button
                   variant="secondary"
                   icon="plus"
+                  disabled={
+                    settings.entitlements.maxStaff !== null &&
+                    staffList.filter((s) => s.active).length >= settings.entitlements.maxStaff
+                  }
                   onClick={() =>
                     setStaffList((l) => [
                       ...l,
@@ -825,6 +857,13 @@ function SettingsContent() {
                 >
                   Add staff member
                 </Button>
+                {settings.entitlements.maxStaff !== null &&
+                  staffList.filter((s) => s.active).length >= settings.entitlements.maxStaff && (
+                    <p className="text-xs text-ink-400">
+                      You&apos;ve used all {settings.entitlements.maxStaff} staff seats on your
+                      plan. Deactivate someone or upgrade to add more.
+                    </p>
+                  )}
               </div>
             </SectionCard>
           )}
@@ -1254,24 +1293,26 @@ function SettingsContent() {
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-gold-700 dark:text-gold-300">
                       <Icon name="sparkle" className="w-3.5 h-3.5" />
-                      Premium
+                      {currentPlan.label}
                     </span>
                     <Badge tone="green" dot>Active</Badge>
                   </div>
                   <p className="text-3xl font-bold text-ink-900 dark:text-ink-50 mt-4">
-                    Early access
+                    {currentPlan.priceMonthly === null ? (
+                      "Custom pricing"
+                    ) : (
+                      <>
+                        {form.currency === "EUR" ? "€" : "$"}
+                        {currentPlan.priceMonthly}
+                        <span className="text-sm font-semibold text-ink-400"> /month</span>
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
-                    All features included while the product is in early access —
-                    unlimited appointments, customers, and staff.
+                    {currentPlan.tagline}
                   </p>
                   <ul className="mt-5 flex flex-col gap-2">
-                    {[
-                      "Unlimited appointments & customers",
-                      "Calendar with drag & drop",
-                      "Analytics & CSV exports",
-                      "Priority support",
-                    ].map((f) => (
+                    {currentPlan.features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-sm text-ink-600 dark:text-ink-300">
                         <Icon name="check" className="w-4 h-4 text-gold-600 shrink-0" />
                         {f}
@@ -1280,7 +1321,8 @@ function SettingsContent() {
                   </ul>
                 </div>
                 <p className="text-[11px] text-ink-300 dark:text-ink-600 mt-3">
-                  Invoicing and plan management will appear here when paid plans launch.
+                  Want to change your plan? Reach out to us — self-serve upgrades and
+                  invoicing are coming soon.
                 </p>
               </div>
             </SectionCard>

@@ -19,6 +19,7 @@ import type {
 } from "@/types/app";
 import { DAY_KEYS, DEFAULT_SETTINGS } from "@/types/app";
 import { utcToWall } from "@/lib/services/timezone";
+import { resolveEntitlements } from "@/lib/entitlements";
 import {
   effectivePriceCents,
   isPromoActive,
@@ -251,6 +252,8 @@ export function mapSettings(
     reminderHoursBefore: s.reminderHoursBefore,
     reviewRequestsEnabled: s.reviewRequestsEnabled,
     onboardingComplete: s.onboardingComplete,
+    plan: salon.plan,
+    entitlements: resolveEntitlements(salon),
   };
 }
 

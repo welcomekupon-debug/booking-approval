@@ -71,6 +71,20 @@
       "when": 1786493933021,
       "tag": "0009_parallel_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787003902783,
+      "tag": "0010_glossy_tenebrous",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787006345282,
+      "tag": "0011_jittery_orphan",
+      "breakpoints": true
     }
   ]
 }

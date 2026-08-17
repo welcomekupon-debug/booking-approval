@@ -39,6 +39,17 @@ import {
 // Enums
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Subscription tier. No billing provider wired up yet — set manually by the
+ *  platform admin from /admin until self-serve checkout exists. "custom"
+ *  uses the `custom*` override columns on `salons` instead of the tier's
+ *  fixed defaults — see `src/lib/entitlements.ts`. */
+export const salonPlan = pgEnum("salon_plan", [
+  "starter",
+  "professional",
+  "business",
+  "custom",
+]);
+
 export const membershipRole = pgEnum("membership_role", [
   "owner",
   "manager",
@@ -196,6 +207,16 @@ export const salons = pgTable(
     currency: text("currency").notNull().default("EUR"),
     /** IANA timezone, e.g. "Europe/Ljubljana" — all local-time math uses this */
     timezone: text("timezone").notNull().default("Europe/Ljubljana"),
+    /** Subscription tier — platform-admin managed for now, see `salonPlan`. */
+    plan: salonPlan("plan").notNull().default("starter"),
+    /** Only read when `plan` is "custom" — ignored otherwise. Null staff cap
+     *  means unlimited, same convention as the fixed tiers. */
+    customMaxStaff: integer("custom_max_staff"),
+    customAnalytics: boolean("custom_analytics").notNull().default(false),
+    customSelfServiceBooking: boolean("custom_self_service_booking")
+      .notNull()
+      .default(false),
+    customApiAccess: boolean("custom_api_access").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),

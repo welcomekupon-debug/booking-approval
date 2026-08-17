@@ -8,8 +8,10 @@ import {
   resolveChangeRequest,
 } from "@/lib/repositories/changeRequests";
 import { notifySalonMembers } from "@/lib/repositories/notifications";
+import { getSalonById } from "@/lib/repositories/salons";
 import { getSettings } from "@/lib/repositories/settings";
 import { cancelAppointment, rescheduleAppointment } from "@/lib/services/booking";
+import { resolveEntitlements } from "@/lib/entitlements";
 import type { AppointmentChangeRequest, ChangeRequestType } from "@/lib/db/types";
 
 const ACTIONABLE_STATUSES = new Set(["pending", "confirmed"]);
@@ -30,6 +32,13 @@ export async function submitChangeRequest(input: {
   if (!appointment) throw ApiError.notFound("Booking not found.");
   if (!ACTIONABLE_STATUSES.has(appointment.status)) {
     throw ApiError.conflict("This booking can no longer be changed.");
+  }
+
+  const salon = await getSalonById(appointment.salonId);
+  if (!salon || !resolveEntitlements(salon).selfServiceBooking) {
+    throw ApiError.forbidden(
+      "Online reschedule and cancellation requests aren't available for this booking."
+    );
   }
 
   const existing = await getPendingChangeRequest(input.appointmentId);

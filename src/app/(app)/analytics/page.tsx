@@ -141,6 +141,21 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (!loading && !settings.entitlements.analytics) {
+    return (
+      <EmptyState
+        icon="chart"
+        title="Analytics isn't on your plan yet"
+        description="Revenue, trends, peak hours and CSV exports are available on the Professional plan and up."
+        action={
+          <Button variant="primary" icon="sparkle" onClick={() => (window.location.href = "/settings?tab=billing")}>
+            View plans
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div>
       <PageHeader

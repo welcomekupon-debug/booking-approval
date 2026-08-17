@@ -21,7 +21,8 @@ interface KeyRow {
  * • API keys for machine callers (n8n → POST /api/public/bookings)
  */
 export function IntegrationsSection() {
-  const { salonSlug } = useWorkspace();
+  const { salonSlug, settings } = useWorkspace();
+  const apiAccess = settings.entitlements.apiAccess;
   const [keys, setKeys] = useState<KeyRow[] | null>(null);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -185,24 +186,31 @@ export function IntegrationsSection() {
           )}
 
           {/* Create */}
-          <div className="flex gap-2 mb-5">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder='Key name — e.g. "n8n"'
-              className="max-w-xs"
-              onKeyDown={(e) => e.key === "Enter" && createKey()}
-            />
-            <Button
-              variant="primary"
-              icon="plus"
-              loading={creating}
-              disabled={!newName.trim()}
-              onClick={createKey}
-            >
-              Create key
-            </Button>
-          </div>
+          {apiAccess ? (
+            <div className="flex gap-2 mb-5">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder='Key name — e.g. "n8n"'
+                className="max-w-xs"
+                onKeyDown={(e) => e.key === "Enter" && createKey()}
+              />
+              <Button
+                variant="primary"
+                icon="plus"
+                loading={creating}
+                disabled={!newName.trim()}
+                onClick={createKey}
+              >
+                Create key
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-ink-400 bg-ink-50 dark:bg-ink-800/60 rounded-xl px-3.5 py-2.5 mb-5">
+              API access isn&apos;t included in your current plan. Reach out to
+              upgrade — any keys listed below are currently inactive.
+            </p>
+          )}
 
           {error && (
             <p className="text-xs text-rose-600 bg-rose-50 dark:bg-rose-900/20 rounded-xl px-3.5 py-2.5 mb-4">

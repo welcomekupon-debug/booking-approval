@@ -1,6 +1,7 @@
 import type { Salon } from "@/lib/db/types";
 import { getSalonById } from "@/lib/repositories/salons";
 import { appBaseUrl, buildManageUrl } from "@/lib/services/manageToken";
+import { resolveEntitlements } from "@/lib/entitlements";
 
 /**
  * Email service — the ONLY thing in this app that knows an n8n webhook
@@ -246,6 +247,7 @@ export async function buildAppointmentEmailContext(params: {
   const salon = await getSalonById(params.salonId);
   if (!salon) return null;
 
+  const entitlements = resolveEntitlements(salon);
   const services = params.services.map((s) => ("name" in s ? s.name : s.serviceName));
 
   return {
@@ -267,7 +269,9 @@ export async function buildAppointmentEmailContext(params: {
       staffName: params.staffName ?? "",
       priceTotalCents: params.appointment.priceTotalCents,
       notes: params.appointment.customerNote,
-      manageUrl: buildManageUrl(params.appointment.id) ?? "",
+      manageUrl: entitlements.selfServiceBooking
+        ? buildManageUrl(params.appointment.id) ?? ""
+        : "",
     },
   };
 }

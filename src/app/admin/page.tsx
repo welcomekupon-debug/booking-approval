@@ -37,6 +37,13 @@ export default async function AdminPage() {
         name: salon.name,
         slug: salon.slug,
         category: salon.category,
+        plan: salon.plan,
+        customEntitlements: {
+          maxStaff: salon.customMaxStaff,
+          analytics: salon.customAnalytics,
+          selfServiceBooking: salon.customSelfServiceBooking,
+          apiAccess: salon.customApiAccess,
+        },
         createdAt: salon.createdAt.toISOString(),
         owners,
       }))}

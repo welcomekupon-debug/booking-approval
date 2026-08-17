@@ -10,6 +10,7 @@ import { salons } from "@/lib/db/schema";
 import { createBooking } from "@/lib/services/booking";
 import { localDateTimeToUtc } from "@/lib/services/timezone";
 import { publicBookingSchema } from "@/lib/validators/booking";
+import { resolveEntitlements } from "@/lib/entitlements";
 
 /**
  * POST /api/public/bookings — machine entry point for booking requests.
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
       where: eq(salons.id, key.salonId),
     });
     if (!salon) throw ApiError.notFound("Salon not found.");
+    if (!resolveEntitlements(salon).apiAccess) {
+      throw ApiError.forbidden("API access isn't included in this salon's current plan.");
+    }
 
     // Resolve start instant: explicit UTC, or salon-local date+time
     let startsAt: Date;

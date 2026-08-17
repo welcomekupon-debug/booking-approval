@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { handleRoute } from "@/lib/api";
 import { requireRole, requireTenant } from "@/lib/auth/context";
+import { ApiError } from "@/lib/errors";
+import { resolveEntitlements } from "@/lib/entitlements";
 import {
   createApiKey,
   listApiKeys,
@@ -32,6 +34,11 @@ export async function POST(request: NextRequest) {
   return handleRoute(async () => {
     const ctx = await requireTenant();
     requireRole(ctx, "owner");
+    if (!resolveEntitlements(ctx.salon).apiAccess) {
+      throw ApiError.forbidden(
+        "API access isn't included in your current plan."
+      );
+    }
     const { name } = z
       .strictObject({ name: z.string().trim().min(1).max(100) })
       .parse(await request.json());

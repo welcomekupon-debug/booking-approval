@@ -76,6 +76,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     (b) => b.Status?.trim().toLowerCase() === "pending"
   ).length;
 
+  const visibleNav = settings.entitlements.analytics
+    ? NAV
+    : NAV.filter((item) => item.href !== "/analytics");
+
   const isOnboarding = pathname === "/onboarding";
 
   // Send new clients through onboarding once data has loaded
@@ -117,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       if (gPressed.current) {
         const key = e.key.toLowerCase();
-        const item = NAV.find((n) => n.shortcut.toLowerCase() === key);
+        const item = visibleNav.find((n) => n.shortcut.toLowerCase() === key);
         if (item) {
           e.preventDefault();
           router.push(item.href);
@@ -133,7 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [router, toggle]);
+  }, [router, toggle, visibleNav]);
 
   // Onboarding renders full-screen without the shell
   if (isOnboarding) {
@@ -142,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const navLinks = (onNavigate?: () => void) => (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
+      {visibleNav.map((item) => {
         const active =
           item.href === "/"
             ? pathname === "/"

@@ -4,6 +4,7 @@ import { getAppointmentByIdUnscoped, getPendingChangeRequest } from "@/lib/repos
 import { getSalonById } from "@/lib/repositories/salons";
 import { getSettings } from "@/lib/repositories/settings";
 import { verifyAppointmentToken } from "@/lib/services/manageToken";
+import { resolveEntitlements } from "@/lib/entitlements";
 import { ManageBookingFlow } from "@/components/public/ManageBookingFlow";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ export default async function ManageBookingPage({ params }: Props) {
         logoUrl: salon.logoUrl,
         timezone: salon.timezone,
         allowCancellation: settings.allowCancellation,
+        selfServiceEnabled: resolveEntitlements(salon).selfServiceBooking,
       }}
       pendingRequest={
         pending

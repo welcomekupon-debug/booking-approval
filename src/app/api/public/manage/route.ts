@@ -11,6 +11,7 @@ import { getSalonById } from "@/lib/repositories/salons";
 import { getSettings } from "@/lib/repositories/settings";
 import { submitChangeRequest } from "@/lib/services/changeRequests";
 import { verifyAppointmentToken } from "@/lib/services/manageToken";
+import { resolveEntitlements } from "@/lib/entitlements";
 import { zUuid } from "@/lib/validators/booking";
 
 /**
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
         name: salon.name,
         timezone: salon.timezone,
         allowCancellation: settings.allowCancellation,
+        selfServiceEnabled: resolveEntitlements(salon).selfServiceBooking,
       },
       pendingRequest: pending
         ? { type: pending.type, createdAt: pending.createdAt.toISOString() }

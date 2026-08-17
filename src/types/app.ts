@@ -1,4 +1,6 @@
 import type { Booking } from "./booking";
+import type { SalonPlan } from "@/lib/db/types";
+import type { Entitlements } from "@/lib/entitlements";
 
 // ---------------------------------------------------------------------------
 // Frontend view-models. Sheet-era shapes kept stable through the Postgres
@@ -127,6 +129,10 @@ export interface BusinessSettings {
   /** Client-controlled — staff can only send review requests while this is on. */
   reviewRequestsEnabled: boolean;
   onboardingComplete: boolean;
+  /** Subscription tier — read-only here, changed by the platform admin. */
+  plan: SalonPlan;
+  /** What `plan` actually unlocks, already resolved server-side. */
+  entitlements: Entitlements;
 }
 
 export const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -172,6 +178,8 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   reminderHoursBefore: 24,
   reviewRequestsEnabled: true,
   onboardingComplete: false,
+  plan: "starter",
+  entitlements: { maxStaff: 1, analytics: false, selfServiceBooking: false, apiAccess: false },
 };
 
 /** Notification row as serialized by /api/workspace */
